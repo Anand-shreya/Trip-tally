@@ -1,0 +1,131 @@
+from datetime import date
+from decimal import Decimal
+
+import pytest
+
+
+def itinerary_trip(db, *, selected=True):
+    from app.models import Place, Traveler, Trip, User
+
+    user = User(name="Owner", email="itinerary@tripwise.local")
+    trip = Trip(
+        user=user,
+        name="Sri Lanka loop",
+        destination="Sri Lanka",
+        start_date=date(2026, 9, 5),
+        end_date=date(2026, 9, 7),
+        number_of_days=3,
+        base_currency="INR",
+        budget=Decimal("30000"),
+        travel_style="COMFORTABLE",
+        status="READY",
+        weather_score=Decimal("7.4"),
+        weather_rating="GOOD",
+        weather_summary="Pleasant with passing rain.",
+    )
+    trip.travelers = [Traveler(name="Shreya"), Traveler(name="Rahul")]
+    trip.places = [
+        Place(
+            name="Kandy",
+            description="Culture and lake walks",
+            latitude=7.2906,
+            longitude=80.6337,
+            recommended_days=Decimal("2"),
+            estimated_food=1000,
+            estimated_transport=1000,
+            estimated_tickets=500,
+            estimated_activity=1500,
+            estimated_stay=3000,
+            weather_score=Decimal("7.4"),
+            overall_score=Decimal("8.2"),
+            best_for=["Culture"],
+            selected=selected,
+        )
+    ]
+    db.add(trip)
+    db.commit()
+    return trip
+
+
+def test_itinerary_requires_a_selected_place(db):
+    from app.core.exceptions import ValidationError
+    from app.services.itinerary_service import enqueue_itinerary
+
+    trip = itinerary_trip(db, selected=False)
+    with pytest.raises(ValidationError, match="Select at least one"):
+        enqueue_itinerary(db, trip, dispatch=False)
+
+
+def test_itinerary_job_generates_exact_trip_days_and_valid_times(db):
+    from app.services.itinerary_service import enqueue_itinerary, get_itinerary, run_itinerary_job
+
+    trip = itinerary_trip(db)
+    job = enqueue_itinerary(db, trip, dispatch=False)
+    completed = run_itinerary_job(job.id, db=db)
+    days = get_itinerary(db, trip)
+
+    assert completed.status == "SUCCESS"
+    assert [day.day_number for day in days] == [1, 2, 3]
+    assert [day.date for day in days] == [date(2026, 9, 5), date(2026, 9, 6), date(2026, 9, 7)]
+    assert all(activity.start_time < activity.end_time for day in days for activity in day.activities)
+
+
+def test_invalid_replacement_keeps_existing_itinerary(db):
+    from app.core.exceptions import ValidationError
+    from app.schemas.itinerary import ItineraryPlan
+    from app.services.itinerary_service import enqueue_itinerary, get_itinerary, replace_itinerary, run_itinerary_job
+
+    trip = itinerary_trip(db)
+    job = enqueue_itinerary(db, trip, dispatch=False)
+    run_itinerary_job(job.id, db=db)
+    original_titles = [day.title for day in get_itinerary(db, trip)]
+
+    with pytest.raises(ValidationError, match="exactly 3 days"):
+        replace_itinerary(db, trip, ItineraryPlan(days=[]))
+
+    assert [day.title for day in get_itinerary(db, trip)] == original_titles
+
+
+def test_failed_job_retries_then_becomes_dead(db):
+    from app.services.itinerary_service import enqueue_itinerary, run_itinerary_job
+
+    trip = itinerary_trip(db)
+    job = enqueue_itinerary(db, trip, dispatch=False)
+
+    def broken_generator(_trip, _places):
+        raise RuntimeError("provider unavailable")
+
+    assert run_itinerary_job(job.id, db=db, generator=broken_generator).status == "RETRY"
+    assert run_itinerary_job(job.id, db=db, generator=broken_generator).status == "RETRY"
+    final = run_itinerary_job(job.id, db=db, generator=broken_generator)
+    assert final.status == "DEAD"
+    assert final.attempt == 3
+    assert "provider unavailable" in final.error
+
+
+def test_summary_uses_backend_totals_categories_and_fallback_prose(db):
+    from app.schemas.expense import ExpenseCreate
+    from app.services.expense_service import create_expense
+    from app.services.summary_service import build_summary
+
+    trip = itinerary_trip(db)
+    payload = ExpenseCreate(
+        description="Dinner",
+        amount=Decimal("1200"),
+        currency="INR",
+        category="FOOD",
+        paid_by=trip.travelers[0].id,
+        expense_date=date(2026, 9, 5),
+        included_travelers=[traveler.id for traveler in trip.travelers],
+        split_type="EQUAL",
+    )
+    create_expense(db, trip, payload, "summary-expense")
+
+    summary = build_summary(db, trip)
+
+    assert summary.total_spent == Decimal("1200.00")
+    assert summary.remaining == Decimal("28800.00")
+    assert summary.categories == {"FOOD": Decimal("1200.00")}
+    assert summary.average_per_day == Decimal("400.00")
+    assert "within" in summary.ai_summary.lower()
+    assert len(summary.traveler_balances) == 2
