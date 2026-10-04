@@ -4,6 +4,7 @@ from datetime import date
 from decimal import ROUND_DOWN, Decimal
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.enums import SplitType
@@ -34,6 +35,14 @@ def _load_trip_travelers(db: Session, trip: Trip, ids: set[str]) -> dict[str, Tr
         db.scalars(select(Traveler).where(Traveler.trip_id == trip.id, Traveler.id.in_(ids)))
     )
     return {traveler.id: traveler for traveler in travelers}
+
+
+def _find_idempotent_expense(db: Session, trip_id: str, idempotency_key: str) -> Expense | None:
+    return db.scalar(
+        select(Expense)
+        .where(Expense.trip_id == trip_id, Expense.idempotency_key == idempotency_key)
+        .options(selectinload(Expense.splits))
+    )
 
 
 def _equal_shares(base_amount: Decimal, traveler_ids: list[str]) -> list[tuple[str, Decimal]]:
@@ -67,11 +76,7 @@ def create_expense(
     db: Session, trip: Trip, payload: ExpenseCreate, idempotency_key: str
 ) -> Expense:
     request_hash = _request_hash(payload)
-    existing = db.scalar(
-        select(Expense)
-        .where(Expense.trip_id == trip.id, Expense.idempotency_key == idempotency_key)
-        .options(selectinload(Expense.splits))
-    )
+    existing = _find_idempotent_expense(db, trip.id, idempotency_key)
     if existing:
         if existing.request_hash != request_hash:
             raise ConflictError("Idempotency key was already used for a different expense")
@@ -117,6 +122,16 @@ def create_expense(
         db.refresh(expense)
         _ = expense.splits
         return expense
+    except IntegrityError:
+        db.rollback()
+        replay = _find_idempotent_expense(db, trip.id, idempotency_key)
+        if replay is None:
+            raise
+        if replay.request_hash != request_hash:
+            raise ConflictError(
+                "Idempotency key was already used for a different expense"
+            ) from None
+        return replay
     except Exception:
         db.rollback()
         raise

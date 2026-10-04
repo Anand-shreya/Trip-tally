@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom'
 import { Button, EmptyState, ErrorState, LoadingState, PageHeader } from '../components/ui'
 import { api } from '../lib/api'
 import { formatDate, formatMoney } from '../lib/format'
+import { waitForJob } from '../lib/jobs'
 import { useItinerary, useTrip } from '../lib/queries'
 import { queryKeys } from '../lib/queryKeys'
 import type { Job } from '../lib/types'
@@ -15,7 +16,10 @@ export function ItineraryPage() {
   const trip = useTrip(id)
   const itinerary = useItinerary(id)
   const generate = useMutation({
-    mutationFn: () => api.post<Job>(`/trips/${id}/itinerary/generate`),
+    mutationFn: async () => {
+      const job = await api.post<Job>(`/trips/${id}/itinerary/generate`)
+      return waitForJob(job, (jobId) => api.get<Job>(`/jobs/${jobId}`))
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.itinerary(id) }),
   })
   if (trip.isLoading || itinerary.isLoading) return <LoadingState label="Laying out each day…" />

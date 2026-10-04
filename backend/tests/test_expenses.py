@@ -170,6 +170,43 @@ def test_idempotency_replays_same_request_and_conflicts_on_changed_request(db):
         create_expense(db, trip, equal_payload(trip, description="Taxi"), "stable-key")
 
 
+def test_simultaneous_idempotent_requests_return_the_committed_expense(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session, selectinload
+
+    from app.db.database import Base
+    from app.models import Trip
+    from app.services.expense_service import create_expense
+
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'race.db'}")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        trip = expense_trip(session)
+        payload = equal_payload(trip)
+        original_commit = session.commit
+        competing_expense_id = None
+        race_started = False
+
+        def racing_commit():
+            nonlocal competing_expense_id, race_started
+            if not race_started:
+                race_started = True
+                with Session(engine) as competitor:
+                    competing_trip = competitor.scalar(
+                        select(Trip).where(Trip.id == trip.id).options(selectinload(Trip.travelers))
+                    )
+                    competing = create_expense(
+                        competitor, competing_trip, payload, "simultaneous-key"
+                    )
+                    competing_expense_id = competing.id
+            original_commit()
+
+        monkeypatch.setattr(session, "commit", racing_commit)
+        replay = create_expense(session, trip, payload, "simultaneous-key")
+
+        assert replay.id == competing_expense_id
+
+
 def test_list_expenses_filters_category_traveler_and_dates(db):
     from app.services.expense_service import create_expense, list_expenses
 

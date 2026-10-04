@@ -230,3 +230,55 @@ def test_openai_summary_failure_falls_back_to_local_prose():
 
     assert "within" in result.lower()
     assert "3550.00 INR remaining" in result
+
+
+def test_rq_handler_raises_retryable_job_failures(monkeypatch):
+    from app.workers.jobs import itinerary_job
+
+    monkeypatch.setattr(
+        itinerary_job,
+        "run_itinerary_job",
+        lambda _job_id: SimpleNamespace(status="RETRY", error="provider unavailable"),
+    )
+
+    with pytest.raises(RuntimeError, match="provider unavailable"):
+        itinerary_job.perform("job-1")
+
+
+def test_redis_dispatch_configures_two_retries(monkeypatch):
+    import sys
+
+    from app.workers import queue as queue_module
+
+    captured = {}
+
+    class FakeRedis:
+        @classmethod
+        def from_url(cls, url):
+            return url
+
+    class FakeRetry:
+        def __init__(self, *, max, interval):
+            self.max = max
+            self.interval = interval
+
+    class FakeQueue:
+        def __init__(self, name, *, connection):
+            captured["queue"] = (name, connection)
+
+        def enqueue(self, *args, **kwargs):
+            captured["enqueue"] = (args, kwargs)
+
+    monkeypatch.setattr(
+        queue_module,
+        "get_settings",
+        lambda: SimpleNamespace(queue_mode="redis", redis_url="redis://queue/0"),
+    )
+    monkeypatch.setitem(sys.modules, "redis", SimpleNamespace(Redis=FakeRedis))
+    monkeypatch.setitem(sys.modules, "rq", SimpleNamespace(Queue=FakeQueue, Retry=FakeRetry))
+
+    queue_module.dispatch_itinerary("job-1")
+
+    retry = captured["enqueue"][1]["retry"]
+    assert retry.max == 2
+    assert retry.interval == [5, 15]
