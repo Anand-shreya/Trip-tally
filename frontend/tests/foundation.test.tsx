@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { request } from '../src/lib/api'
 import { AppRouter } from '../src/app/AppRouter'
+import { queryKeys } from '../src/lib/queryKeys'
 
 
 describe('API client', () => {
@@ -20,14 +22,20 @@ describe('API client', () => {
 })
 
 describe('application router', () => {
+  function renderRouter(path: string) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    client.setQueryData(queryKeys.trips, [])
+    return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><AppRouter /></MemoryRouter></QueryClientProvider>)
+  }
+
   it('renders the dashboard route and primary action', () => {
-    render(<MemoryRouter initialEntries={['/']}><AppRouter /></MemoryRouter>)
+    renderRouter('/')
     expect(screen.getByRole('heading', { name: /where to next/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /plan a trip/i })).toHaveAttribute('href', '/trips/new')
   })
 
   it('keeps all trip stages in a labelled navigation region', () => {
-    render(<MemoryRouter initialEntries={['/trips/demo']}><AppRouter /></MemoryRouter>)
+    renderRouter('/trips/demo')
     const navigation = screen.getByRole('navigation', { name: /trip route/i })
     expect(navigation).toHaveTextContent('Overview')
     expect(navigation).toHaveTextContent('Plan')
