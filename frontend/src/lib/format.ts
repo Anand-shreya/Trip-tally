@@ -3,6 +3,7 @@ export function formatMoney(value: string | number | null | undefined, currency 
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount)
 }
