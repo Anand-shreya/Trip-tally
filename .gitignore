@@ -15,3 +15,6 @@ coverage/
 .superpowers/
 backend/tripwise.db
 frontend/.vite/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
