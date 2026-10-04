@@ -1,0 +1,83 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tripwise
+      POSTGRES_USER: tripwise
+      POSTGRES_PASSWORD: tripwise
+    volumes:
+      - tripwise_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tripwise -d tripwise"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      TRIPWISE_DATABASE_URL: postgresql+psycopg://tripwise:tripwise@db:5432/tripwise
+      TRIPWISE_REDIS_URL: redis://redis:6379/0
+      TRIPWISE_QUEUE_MODE: redis
+      TRIPWISE_CORS_ORIGINS: '["http://localhost:5173"]'
+      TRIPWISE_OPENAI_API_KEY: ${TRIPWISE_OPENAI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build: ./backend
+    command: python -m app.workers.worker
+    environment:
+      TRIPWISE_DATABASE_URL: postgresql+psycopg://tripwise:tripwise@db:5432/tripwise
+      TRIPWISE_REDIS_URL: redis://redis:6379/0
+      TRIPWISE_QUEUE_MODE: redis
+      TRIPWISE_OPENAI_API_KEY: ${TRIPWISE_OPENAI_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  tripwise_postgres:
