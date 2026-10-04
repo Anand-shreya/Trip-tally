@@ -1,0 +1,53 @@
+from datetime import date
+from decimal import Decimal
+
+from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, Text, Uuid
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.database import Base
+from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class Trip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "trips"
+
+    user_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    destination: Mapped[str] = mapped_column(String(200))
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    number_of_days: Mapped[int] = mapped_column(Integer)
+    base_currency: Mapped[str] = mapped_column(String(3), default="INR")
+    budget: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    travel_style: Mapped[str] = mapped_column(String(20), default="COMFORTABLE")
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT")
+    weather_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
+    weather_rating: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    weather_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estimated_cost_min: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    estimated_cost_max: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="trips")
+    travelers: Mapped[list["Traveler"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan"
+    )
+    places: Mapped[list["Place"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan"
+    )
+    itinerary_days: Mapped[list["ItineraryDay"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", order_by="ItineraryDay.day_number"
+    )
+    expenses: Mapped[list["Expense"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan"
+    )
+    jobs: Mapped[list["Job"]] = relationship(back_populates="trip", cascade="all, delete-orphan")
+
+
+from app.models.expense import Expense  # noqa: E402, F401
+from app.models.itinerary import ItineraryDay  # noqa: E402, F401
+from app.models.job import Job  # noqa: E402, F401
+from app.models.place import Place  # noqa: E402, F401
+from app.models.traveler import Traveler  # noqa: E402, F401
+from app.models.user import User  # noqa: E402, F401
+
