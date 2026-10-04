@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Integer, JSON, String, Text, Uuid
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -23,4 +23,3 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 from app.models.trip import Trip  # noqa: E402, F401
-

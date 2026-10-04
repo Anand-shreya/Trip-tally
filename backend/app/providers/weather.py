@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.schemas.place import WeatherAnalysis
 
@@ -47,4 +47,3 @@ async def get_weather(destination: str, start_date: date) -> WeatherAnalysis:
         humidity=humidity,
         wind_kph=wind,
     )
-

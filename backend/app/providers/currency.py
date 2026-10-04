@@ -2,7 +2,6 @@ from decimal import Decimal
 
 from app.schemas.common import money
 
-
 REFERENCE_TO_INR = {
     "INR": Decimal("1"),
     "USD": Decimal("84.00"),
@@ -26,4 +25,3 @@ async def get_exchange_rate(source: str, target: str) -> Decimal:
 
 def convert(amount: Decimal, rate: Decimal) -> Decimal:
     return money(amount * rate)
-

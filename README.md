@@ -87,6 +87,8 @@ Backend settings use the `TRIPWISE_` prefix. Copy `.env.example` to `.env`; neve
 
 When `TRIPWISE_OPENAI_API_KEY` is absent, TripWise uses its deterministic itinerary and prose provider. The core product remains fully functional.
 
+When a key is configured, itinerary generation uses the OpenAI Responses API with a Pydantic schema, following the official [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic local writer.
+
 ## Architecture
 
 ```text

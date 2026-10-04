@@ -10,7 +10,6 @@ from app.models import ItineraryActivity, ItineraryDay, Job, Place, Trip
 from app.providers.ai import generate_itinerary
 from app.schemas.itinerary import ItineraryPlan
 
-
 Generator = Callable[[Trip, list[Place]], ItineraryPlan]
 
 
@@ -31,7 +30,10 @@ def replace_itinerary(db: Session, trip: Trip, plan: ItineraryPlan) -> list[Itin
     expected_days = list(range(1, trip.number_of_days + 1))
     if [day.day for day in plan.days] != expected_days:
         raise ValidationError("Itinerary day numbers must be consecutive")
-    expected_dates = [trip.start_date.fromordinal(trip.start_date.toordinal() + index) for index in range(trip.number_of_days)]
+    expected_dates = [
+        trip.start_date.fromordinal(trip.start_date.toordinal() + index)
+        for index in range(trip.number_of_days)
+    ]
     if [day.date for day in plan.days] != expected_dates:
         raise ValidationError("Itinerary dates must match the trip dates")
 
@@ -118,9 +120,7 @@ def run_itinerary_job(
         job.error = None
         session.commit()
         trip = session.scalar(
-            select(Trip)
-            .where(Trip.id == job.trip_id)
-            .options(selectinload(Trip.places))
+            select(Trip).where(Trip.id == job.trip_id).options(selectinload(Trip.places))
         )
         selected = [place for place in trip.places if place.selected]
         plan = (generator or generate_itinerary)(trip, selected)
@@ -142,4 +142,3 @@ def run_itinerary_job(
     finally:
         if owns_session:
             session.close()
-

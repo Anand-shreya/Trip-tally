@@ -1,2 +1,1 @@
 """RQ job functions."""
-

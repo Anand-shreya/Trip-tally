@@ -23,7 +23,9 @@ class Expense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     exchange_rate: Mapped[Decimal] = mapped_column(Numeric(12, 6))
     base_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     category: Mapped[str] = mapped_column(String(50), index=True)
-    paid_by: Mapped[str] = mapped_column(Uuid(as_uuid=False), ForeignKey("travelers.id"), index=True)
+    paid_by: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), ForeignKey("travelers.id"), index=True
+    )
     expense_date: Mapped[date] = mapped_column(Date, index=True)
     location: Mapped[str | None] = mapped_column(String(200), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -45,7 +47,9 @@ class ExpenseSplit(UUIDPrimaryKeyMixin, Base):
     expense_id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), ForeignKey("expenses.id", ondelete="CASCADE"), index=True
     )
-    traveler_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), ForeignKey("travelers.id"), index=True)
+    traveler_id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), ForeignKey("travelers.id"), index=True
+    )
     share_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
     expense: Mapped[Expense] = relationship(back_populates="splits")
@@ -54,4 +58,3 @@ class ExpenseSplit(UUIDPrimaryKeyMixin, Base):
 
 from app.models.traveler import Traveler  # noqa: E402, F401
 from app.models.trip import Trip  # noqa: E402, F401
-

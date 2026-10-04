@@ -1,12 +1,9 @@
 from fastapi import APIRouter, status
 
 from app.api.deps import CurrentUserId, DbSession, OwnedTrip
-from app.core.exceptions import NotFoundError
-from app.models import Job
 from app.schemas.itinerary import ItineraryDayRead, JobRead
 from app.services.itinerary_service import enqueue_itinerary, get_itinerary, get_job
 from app.services.trip_service import get_trip
-
 
 router = APIRouter(tags=["itinerary"])
 
@@ -30,4 +27,3 @@ def get_job_route(job_id: str, db: DbSession, user_id: CurrentUserId):
     job = get_job(db, job_id)
     get_trip(db, job.trip_id, user_id)
     return job
-

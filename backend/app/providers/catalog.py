@@ -1,6 +1,5 @@
 import asyncio
 
-
 SRI_LANKA_PLACES = [
     {
         "name": "Kandy",
@@ -67,7 +66,11 @@ async def get_candidate_places(destination: str) -> list[dict]:
     themes = [
         ("Old Quarter", "Walkable heritage streets and local food", ["Culture", "Food"]),
         ("Nature Reserve", "A restorative day among native landscapes", ["Nature", "Wildlife"]),
-        ("Market District", "Independent makers, regional produce, and evening energy", ["Shopping", "Food"]),
+        (
+            "Market District",
+            "Independent makers, regional produce, and evening energy",
+            ["Shopping", "Food"],
+        ),
         ("Riverside", "An easy waterfront route with relaxed stops", ["Views", "Leisure"]),
         ("Museum Quarter", "A focused introduction to local art and history", ["Art", "History"]),
     ]
@@ -83,4 +86,3 @@ async def get_candidate_places(destination: str) -> list[dict]:
         }
         for index, (name, description, best_for) in enumerate(themes)
     ]
-

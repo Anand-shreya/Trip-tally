@@ -7,7 +7,6 @@ from app.api.deps import DbSession, OwnedTrip
 from app.schemas.expense import ExpenseCreate, ExpenseRead
 from app.services.expense_service import create_expense, delete_expense, list_expenses
 
-
 router = APIRouter(prefix="/trips/{trip_id}/expenses", tags=["expenses"])
 
 
@@ -25,10 +24,10 @@ def create_expense_route(
 def list_expenses_route(
     trip: OwnedTrip,
     db: DbSession,
-    category: str | None = Query(default=None),
-    traveler_id: str | None = Query(default=None),
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
+    category: Annotated[str | None, Query()] = None,
+    traveler_id: Annotated[str | None, Query()] = None,
+    start_date: Annotated[date | None, Query()] = None,
+    end_date: Annotated[date | None, Query()] = None,
 ):
     return list_expenses(
         db,
@@ -44,4 +43,3 @@ def list_expenses_route(
 def delete_expense_route(expense_id: str, trip: OwnedTrip, db: DbSession) -> Response:
     delete_expense(db, trip, expense_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-

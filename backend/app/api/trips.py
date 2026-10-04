@@ -13,7 +13,6 @@ from app.services.trip_service import (
     list_trips,
 )
 
-
 router = APIRouter(prefix="/trips", tags=["trips"])
 
 
@@ -39,7 +38,9 @@ def delete_trip_route(trip: OwnedTrip, db: DbSession) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{trip_id}/travelers", response_model=TravelerRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{trip_id}/travelers", response_model=TravelerRead, status_code=status.HTTP_201_CREATED
+)
 def add_traveler_route(payload: TravelerCreate, trip: OwnedTrip, db: DbSession):
     return add_traveler(db, trip, payload)
 
@@ -58,4 +59,3 @@ def delete_traveler_route(traveler_id: str, trip: OwnedTrip, db: DbSession) -> R
 @router.post("/{trip_id}/analyze", response_model=AnalysisResponse)
 async def analyze_trip_route(trip: OwnedTrip, db: DbSession):
     return await analyze_trip(db, trip)
-

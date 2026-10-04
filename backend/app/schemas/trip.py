@@ -78,4 +78,3 @@ class TripRead(BaseModel):
 class TripCreated(BaseModel):
     trip_id: str
     status: TripStatus
-

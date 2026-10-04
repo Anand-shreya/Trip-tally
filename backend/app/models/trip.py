@@ -50,4 +50,3 @@ from app.models.job import Job  # noqa: E402, F401
 from app.models.place import Place  # noqa: E402, F401
 from app.models.traveler import Traveler  # noqa: E402, F401
 from app.models.user import User  # noqa: E402, F401
-

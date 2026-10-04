@@ -61,7 +61,9 @@ def add_traveler(db: Session, trip: Trip, payload: TravelerCreate) -> Traveler:
     )
     if existing:
         raise ConflictError("A traveler with this name already exists")
-    traveler = Traveler(trip_id=trip.id, name=payload.name, email=str(payload.email) if payload.email else None)
+    traveler = Traveler(
+        trip_id=trip.id, name=payload.name, email=str(payload.email) if payload.email else None
+    )
     db.add(traveler)
     db.commit()
     db.refresh(traveler)
@@ -69,7 +71,11 @@ def add_traveler(db: Session, trip: Trip, payload: TravelerCreate) -> Traveler:
 
 
 def list_travelers(db: Session, trip: Trip) -> list[Traveler]:
-    return list(db.scalars(select(Traveler).where(Traveler.trip_id == trip.id).order_by(Traveler.created_at)))
+    return list(
+        db.scalars(
+            select(Traveler).where(Traveler.trip_id == trip.id).order_by(Traveler.created_at)
+        )
+    )
 
 
 def delete_traveler(db: Session, trip: Trip, traveler_id: str) -> None:
@@ -82,4 +88,3 @@ def delete_traveler(db: Session, trip: Trip, traveler_id: str) -> None:
         raise ConflictError("Traveler is referenced by expenses and cannot be removed")
     db.delete(traveler)
     db.commit()
-

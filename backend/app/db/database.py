@@ -15,7 +15,9 @@ def _engine_options(url: str) -> dict:
 
 
 settings = get_settings()
-engine = create_engine(settings.database_url, pool_pre_ping=True, **_engine_options(settings.database_url))
+engine = create_engine(
+    settings.database_url, pool_pre_ping=True, **_engine_options(settings.database_url)
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
@@ -38,4 +40,3 @@ def init_db() -> None:
                     email=settings.demo_user_email,
                 )
             )
-

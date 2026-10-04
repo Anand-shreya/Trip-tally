@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -10,7 +8,9 @@ from app.schemas.expense import Settlement, TravelerBalance
 
 def calculate_balances(db: Session, trip: Trip) -> list[TravelerBalance]:
     travelers = list(
-        db.scalars(select(Traveler).where(Traveler.trip_id == trip.id).order_by(Traveler.created_at))
+        db.scalars(
+            select(Traveler).where(Traveler.trip_id == trip.id).order_by(Traveler.created_at)
+        )
     )
     balances: list[TravelerBalance] = []
     for traveler in travelers:

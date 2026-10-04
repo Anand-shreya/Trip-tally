@@ -1,2 +1,1 @@
 """TripWise domain services."""
-

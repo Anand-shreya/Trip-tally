@@ -21,4 +21,3 @@ class TripSummary(BaseModel):
     traveler_balances: list[TravelerBalance]
     settlements: list[Settlement]
     ai_summary: str
-

@@ -24,6 +24,7 @@ def test_settlement_greedily_matches_debtors_and_creditors_deterministically():
 
 def test_balances_conserve_money_for_payers_and_owed_shares(db):
     from test_expenses import equal_payload, expense_trip
+
     from app.services.expense_service import create_expense
     from app.services.settlement_service import calculate_balances
 

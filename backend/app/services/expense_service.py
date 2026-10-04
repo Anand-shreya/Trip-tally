@@ -1,7 +1,7 @@
 import hashlib
 import json
 from datetime import date
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -106,7 +106,10 @@ def create_expense(
         notes=payload.notes,
         idempotency_key=idempotency_key,
         request_hash=request_hash,
-        splits=[ExpenseSplit(traveler_id=traveler_id, share_amount=amount) for traveler_id, amount in shares],
+        splits=[
+            ExpenseSplit(traveler_id=traveler_id, share_amount=amount)
+            for traveler_id, amount in shares
+        ],
     )
     try:
         db.add(expense)
@@ -128,12 +131,18 @@ def list_expenses(
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> list[Expense]:
-    statement = select(Expense).where(Expense.trip_id == trip.id).options(selectinload(Expense.splits))
+    statement = (
+        select(Expense).where(Expense.trip_id == trip.id).options(selectinload(Expense.splits))
+    )
     if category:
         statement = statement.where(Expense.category == category)
     if traveler_id:
-        split_expenses = select(ExpenseSplit.expense_id).where(ExpenseSplit.traveler_id == traveler_id)
-        statement = statement.where(or_(Expense.paid_by == traveler_id, Expense.id.in_(split_expenses)))
+        split_expenses = select(ExpenseSplit.expense_id).where(
+            ExpenseSplit.traveler_id == traveler_id
+        )
+        statement = statement.where(
+            or_(Expense.paid_by == traveler_id, Expense.id.in_(split_expenses))
+        )
     if start_date:
         statement = statement.where(Expense.expense_date >= start_date)
     if end_date:
@@ -143,9 +152,7 @@ def list_expenses(
 
 
 def delete_expense(db: Session, trip: Trip, expense_id: str) -> None:
-    expense = db.scalar(
-        select(Expense).where(Expense.id == expense_id, Expense.trip_id == trip.id)
-    )
+    expense = db.scalar(select(Expense).where(Expense.id == expense_id, Expense.trip_id == trip.id))
     if expense is None:
         raise NotFoundError("Expense not found")
     db.delete(expense)

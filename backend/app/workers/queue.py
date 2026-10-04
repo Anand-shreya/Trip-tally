@@ -15,4 +15,3 @@ def dispatch_itinerary(job_id: str, *, db: Session | None = None) -> None:
     from app.services.itinerary_service import run_itinerary_job
 
     run_itinerary_job(job_id, db=db)
-

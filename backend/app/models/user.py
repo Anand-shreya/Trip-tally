@@ -14,4 +14,3 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 from app.models.trip import Trip  # noqa: E402, F401
-

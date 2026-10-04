@@ -62,4 +62,3 @@ class JobRead(BaseModel):
     max_attempts: int
     result: dict | None
     error: str | None
-

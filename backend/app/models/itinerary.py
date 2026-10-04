@@ -45,4 +45,3 @@ class ItineraryActivity(UUIDPrimaryKeyMixin, Base):
 
 
 from app.models.trip import Trip  # noqa: E402, F401
-

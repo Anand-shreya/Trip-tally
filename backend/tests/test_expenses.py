@@ -181,7 +181,9 @@ def test_list_expenses_filters_category_traveler_and_dates(db):
     create_expense(db, trip, taxi, "two")
 
     assert [item.description for item in list_expenses(db, trip, category="FOOD")] == ["Dinner"]
-    assert [item.description for item in list_expenses(db, trip, traveler_id=trip.travelers[2].id)] == [
+    assert [
+        item.description for item in list_expenses(db, trip, traveler_id=trip.travelers[2].id)
+    ] == [
         "Taxi",
         "Dinner",
     ]

@@ -51,4 +51,3 @@ def build_summary(db: Session, trip: Trip) -> TripSummary:
         settlements=settlements,
         ai_summary=narrative,
     )
-

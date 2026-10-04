@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 def test_complete_trip_lifecycle_api(db: Session):
     from fastapi.testclient import TestClient
+
     from app.core.config import get_settings
     from app.db.database import get_db
     from app.main import create_app
@@ -46,9 +47,7 @@ def test_complete_trip_lifecycle_api(db: Session):
     assert analysis.json()["status"] == "READY"
     place_ids = [place["id"] for place in analysis.json()["places"][:2]]
 
-    selected = client.post(
-        f"/api/v1/trips/{trip_id}/places/select", json={"place_ids": place_ids}
-    )
+    selected = client.post(f"/api/v1/trips/{trip_id}/places/select", json={"place_ids": place_ids})
     assert selected.status_code == 200
     assert len(selected.json()) == 2
 
@@ -88,6 +87,7 @@ def test_complete_trip_lifecycle_api(db: Session):
 
 def test_missing_trip_uses_consistent_detail_error(db: Session):
     from fastapi.testclient import TestClient
+
     from app.db.database import get_db
     from app.main import create_app
 

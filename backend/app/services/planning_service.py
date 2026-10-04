@@ -1,5 +1,5 @@
 import asyncio
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -11,7 +11,6 @@ from app.providers.catalog import get_candidate_places
 from app.providers.weather import get_weather
 from app.schemas.common import money
 from app.schemas.place import AnalysisResponse, BudgetEstimate, PlaceRead
-
 
 STYLE_MULTIPLIER = {
     "BUDGET": Decimal("0.72"),

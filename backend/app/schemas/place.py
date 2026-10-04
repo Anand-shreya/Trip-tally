@@ -50,4 +50,3 @@ class AnalysisResponse(BaseModel):
     estimated_budget: BudgetEstimate
     places: list[PlaceRead]
     status: str = "READY"
-

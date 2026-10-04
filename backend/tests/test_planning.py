@@ -121,14 +121,17 @@ async def test_select_places_rejects_place_from_another_trip(db):
     from app.services.trip_service import create_trip
 
     user = make_user(db)
-    payload = lambda name: TripCreate(
-        name=name,
-        destination="Sri Lanka",
-        start_date=date(2026, 9, 5),
-        number_of_days=4,
-        currency="INR",
-        travel_style="COMFORTABLE",
-    )
+
+    def payload(name):
+        return TripCreate(
+            name=name,
+            destination="Sri Lanka",
+            start_date=date(2026, 9, 5),
+            number_of_days=4,
+            currency="INR",
+            travel_style="COMFORTABLE",
+        )
+
     trip_a = create_trip(db, user.id, payload("A"))
     trip_b = create_trip(db, user.id, payload("B"))
     result_b = await analyze_trip(db, trip_b)

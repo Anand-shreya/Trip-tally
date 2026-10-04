@@ -42,4 +42,3 @@ class JobStatus(StrEnum):
 class JobType(StrEnum):
     GENERATE_ITINERARY = "GENERATE_ITINERARY"
     GENERATE_SUMMARY = "GENERATE_SUMMARY"
-

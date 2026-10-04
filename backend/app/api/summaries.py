@@ -6,7 +6,6 @@ from app.schemas.summary import TripSummary
 from app.services.settlement_service import calculate_balances, calculate_settlements
 from app.services.summary_service import build_summary
 
-
 router = APIRouter(prefix="/trips/{trip_id}", tags=["summary"])
 
 
@@ -24,4 +23,3 @@ def settlements_route(trip: OwnedTrip, db: DbSession) -> SettlementsResponse:
 @router.get("/summary", response_model=TripSummary)
 def summary_route(trip: OwnedTrip, db: DbSession):
     return build_summary(db, trip)
-

@@ -8,7 +8,6 @@ from app.db.database import get_db
 from app.models import Trip
 from app.services.trip_service import get_trip
 
-
 DbSession = Annotated[Session, Depends(get_db)]
 
 
@@ -28,4 +27,3 @@ def owned_trip(
 
 
 OwnedTrip = Annotated[Trip, Depends(owned_trip)]
-

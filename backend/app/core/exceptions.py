@@ -20,4 +20,3 @@ class ValidationError(TripWiseError):
 
 class ProviderError(TripWiseError):
     status_code = 503
-

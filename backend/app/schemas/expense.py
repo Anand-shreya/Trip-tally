@@ -87,4 +87,3 @@ class BalancesResponse(BaseModel):
 
 class SettlementsResponse(BaseModel):
     settlements: list[Settlement]
-

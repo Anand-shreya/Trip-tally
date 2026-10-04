@@ -24,4 +24,3 @@ class Traveler(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 from app.models.expense import Expense, ExpenseSplit  # noqa: E402, F401
 from app.models.trip import Trip  # noqa: E402, F401
-

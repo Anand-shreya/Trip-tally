@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -67,13 +68,20 @@ def test_itinerary_job_generates_exact_trip_days_and_valid_times(db):
     assert completed.status == "SUCCESS"
     assert [day.day_number for day in days] == [1, 2, 3]
     assert [day.date for day in days] == [date(2026, 9, 5), date(2026, 9, 6), date(2026, 9, 7)]
-    assert all(activity.start_time < activity.end_time for day in days for activity in day.activities)
+    assert all(
+        activity.start_time < activity.end_time for day in days for activity in day.activities
+    )
 
 
 def test_invalid_replacement_keeps_existing_itinerary(db):
     from app.core.exceptions import ValidationError
     from app.schemas.itinerary import ItineraryPlan
-    from app.services.itinerary_service import enqueue_itinerary, get_itinerary, replace_itinerary, run_itinerary_job
+    from app.services.itinerary_service import (
+        enqueue_itinerary,
+        get_itinerary,
+        replace_itinerary,
+        run_itinerary_job,
+    )
 
     trip = itinerary_trip(db)
     job = enqueue_itinerary(db, trip, dispatch=False)
@@ -129,3 +137,96 @@ def test_summary_uses_backend_totals_categories_and_fallback_prose(db):
     assert summary.average_per_day == Decimal("400.00")
     assert "within" in summary.ai_summary.lower()
     assert len(summary.traveler_balances) == 2
+
+
+def test_openai_itinerary_adapter_uses_responses_structured_output(db):
+    from app.providers.ai import generate_itinerary, generate_local_itinerary
+    from app.schemas.itinerary import ItineraryPlan
+
+    trip = itinerary_trip(db)
+    expected = generate_local_itinerary(trip, trip.places)
+
+    class Responses:
+        def __init__(self):
+            self.calls = []
+
+        def parse(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(output_parsed=expected)
+
+    client = SimpleNamespace(responses=Responses())
+    result = generate_itinerary(trip, trip.places, client=client, model="gpt-test")
+
+    assert result == expected
+    call = client.responses.calls[0]
+    assert call["model"] == "gpt-test"
+    assert call["text_format"] is ItineraryPlan
+    assert "Sri Lanka" in call["input"][1]["content"]
+
+
+def test_openai_summary_adapter_receives_verified_financial_facts():
+    from app.providers.ai import SummaryNarrative, generate_summary_text
+
+    class Responses:
+        def __init__(self):
+            self.calls = []
+
+        def parse(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                output_parsed=SummaryNarrative(summary="Verified figures, concise story.")
+            )
+
+    client = SimpleNamespace(responses=Responses())
+    result = generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+        client=client,
+        model="gpt-test",
+    )
+
+    assert result == "Verified figures, concise story."
+    call = client.responses.calls[0]
+    assert call["text_format"] is SummaryNarrative
+    assert "76450" in call["input"][1]["content"]
+
+
+def test_openai_summary_adapter_supports_an_unbudgeted_trip():
+    from app.providers.ai import SummaryNarrative, generate_summary_text
+
+    class Responses:
+        def parse(self, **kwargs):
+            assert '"remaining": null' in kwargs["input"][1]["content"]
+            return SimpleNamespace(output_parsed=SummaryNarrative(summary="No budget was set."))
+
+    client = SimpleNamespace(responses=Responses())
+    result = generate_summary_text(
+        budget=None,
+        total_spent=Decimal("2500"),
+        top_category=None,
+        currency="INR",
+        client=client,
+    )
+
+    assert result == "No budget was set."
+
+
+def test_openai_summary_failure_falls_back_to_local_prose():
+    from app.providers.ai import generate_summary_text
+
+    class Responses:
+        def parse(self, **_kwargs):
+            raise RuntimeError("provider unavailable")
+
+    result = generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+        client=SimpleNamespace(responses=Responses()),
+    )
+
+    assert "within" in result.lower()
+    assert "3550.00 INR remaining" in result

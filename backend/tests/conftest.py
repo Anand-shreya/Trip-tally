@@ -8,8 +8,8 @@ from sqlalchemy.pool import StaticPool
 
 @pytest.fixture
 def db() -> Generator[Session, None, None]:
-    from app.db.database import Base
     import app.models  # noqa: F401
+    from app.db.database import Base
 
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
@@ -19,4 +19,3 @@ def db() -> Generator[Session, None, None]:
     Base.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
-

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -88,6 +88,12 @@ describe('summary', () => {
     wrapper(<SummaryPage />, '/trips/trip-1/summary', '/trips/:id/summary')
 
     expect((await screen.findAllByText('₹1,200')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: /traveler balances/i })).toBeInTheDocument()
+    const shreyaBalance = screen.getByRole('heading', { name: 'Shreya' }).closest('article')
+    expect(shreyaBalance).not.toBeNull()
+    expect(within(shreyaBalance!).getByText('Paid ₹1,200')).toBeInTheDocument()
+    expect(within(shreyaBalance!).getByText('Share ₹600')).toBeInTheDocument()
+    expect(within(shreyaBalance!).getByText('Net +₹600')).toBeInTheDocument()
     expect(screen.getByText(/rahul pays shreya/i)).toBeInTheDocument()
     expect(screen.getByText(/within budget/i)).toBeInTheDocument()
   })
