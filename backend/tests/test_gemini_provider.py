@@ -88,6 +88,62 @@ def test_gemini_provider_omits_token_limit_when_not_requested():
     assert result.greeting == "Hello"
 
 
+def test_gemini_provider_uses_api_compatible_schema_for_place_results():
+    from app.providers.gemini import GeminiProvider
+    from app.schemas.planning import GeminiPlacesResult
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        places_schema = payload["generationConfig"]["responseJsonSchema"]["properties"]["places"]
+        if "maxItems" in places_schema:
+            return httpx.Response(400, json={"error": {"status": "INVALID_ARGUMENT"}})
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": json.dumps(
+                                        {
+                                            "places": [
+                                                {
+                                                    "name": "Amber Fort",
+                                                    "description": "Hilltop fort complex.",
+                                                    "latitude": 26.9855,
+                                                    "longitude": 75.8513,
+                                                    "recommended_days": 0.5,
+                                                    "best_for": ["History"],
+                                                    "relevance_score": 9.4,
+                                                }
+                                            ]
+                                        }
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+        )
+
+    provider = GeminiProvider(
+        api_key="test-gemini-key",
+        model="gemini-3.5-flash-lite",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = provider.generate_structured(
+        instructions="Return places.",
+        input_messages=[{"role": "user", "content": '{"destination":"Jaipur"}'}],
+        text_format=GeminiPlacesResult,
+        max_output_tokens=3200,
+    )
+
+    assert [place.name for place in result.places] == ["Amber Fort"]
+
+
 def test_gemini_provider_rejects_a_response_without_structured_text():
     from app.providers.gemini import GeminiProvider
 

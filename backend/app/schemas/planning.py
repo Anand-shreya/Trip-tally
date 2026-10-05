@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -182,7 +182,13 @@ class PlaceFacts(BaseModel):
 class GeminiPlacesResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    places: list[PlaceSuggestion] = Field(min_length=1, max_length=20)
+    places: list[PlaceSuggestion] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_place_count(self) -> "GeminiPlacesResult":
+        if len(self.places) > 20:
+            raise ValueError("at most 20 places are allowed")
+        return self
 
 
 class AnalysisResponse(BaseModel):
@@ -193,3 +199,10 @@ class AnalysisResponse(BaseModel):
     budget_model: str
     analyzed_at: datetime
     status: str
+
+    @field_validator("analyzed_at")
+    @classmethod
+    def normalize_analyzed_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)

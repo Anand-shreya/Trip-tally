@@ -458,6 +458,31 @@ async def test_analysis_read_uses_only_persisted_data(db):
 
 
 @pytest.mark.asyncio
+async def test_analysis_read_serializes_persisted_timestamp_as_utc(db):
+    from app.models import Trip
+    from app.schemas.planning import AnalyzeTripRequest
+    from app.services.planning_service import analyze_trip, get_analysis
+
+    trip = create_test_trip(db)
+    trip_id = trip.id
+    created = await analyze_trip(
+        db,
+        trip,
+        AnalyzeTripRequest(),
+        weather_fetcher=successful_weather,
+        planning_provider=FakePlanningProvider(),
+    )
+    created_timestamp = created.model_dump(mode="json")["analyzed_at"]
+
+    db.expunge_all()
+    reloaded_trip = db.get(Trip, trip_id)
+    read_timestamp = get_analysis(db, reloaded_trip).model_dump(mode="json")["analyzed_at"]
+
+    assert read_timestamp == created_timestamp
+    assert read_timestamp.endswith("Z")
+
+
+@pytest.mark.asyncio
 async def test_select_places_rejects_place_from_another_trip(db):
     from app.core.exceptions import ValidationError
     from app.schemas.planning import AnalyzeTripRequest
