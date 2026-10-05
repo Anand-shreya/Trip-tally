@@ -18,7 +18,7 @@ def _provider(client: Any | None, model: str | None) -> tuple[Any | None, str]:
     settings = get_settings()
     if client is not None:
         return client, model or settings.openai_model
-    if not settings.openai_api_key:
+    if not settings.openai_enabled or not settings.openai_api_key:
         return None, model or settings.openai_model
     from openai import OpenAI
 

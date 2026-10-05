@@ -232,6 +232,73 @@ def test_openai_summary_failure_falls_back_to_local_prose():
     assert "3550.00 INR remaining" in result
 
 
+def test_stored_openai_key_is_not_used_until_explicitly_enabled(monkeypatch):
+    import sys
+
+    from app.providers import ai as ai_module
+
+    class ForbiddenOpenAI:
+        def __init__(self, **_kwargs):
+            raise AssertionError("OpenAI client must remain disabled")
+
+    monkeypatch.setattr(
+        ai_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            openai_enabled=False,
+            openai_api_key="stored-but-disabled",
+            openai_model="gpt-test",
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=ForbiddenOpenAI))
+
+    result = ai_module.generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+    )
+
+    assert "3550.00 INR remaining" in result
+
+
+def test_stored_openai_key_is_used_only_after_explicit_enable(monkeypatch):
+    import sys
+
+    from app.providers import ai as ai_module
+
+    class Responses:
+        def parse(self, **_kwargs):
+            return SimpleNamespace(
+                output_parsed=ai_module.SummaryNarrative(summary="Explicitly enabled response.")
+            )
+
+    class EnabledOpenAI:
+        def __init__(self, *, api_key):
+            assert api_key == "enabled-test-key"
+            self.responses = Responses()
+
+    monkeypatch.setattr(
+        ai_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            openai_enabled=True,
+            openai_api_key="enabled-test-key",
+            openai_model="gpt-test",
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=EnabledOpenAI))
+
+    result = ai_module.generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+    )
+
+    assert result == "Explicitly enabled response."
+
+
 def test_rq_handler_raises_retryable_job_failures(monkeypatch):
     from app.workers.jobs import itinerary_job
 

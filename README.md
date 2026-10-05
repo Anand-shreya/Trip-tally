@@ -83,6 +83,7 @@ Backend settings use the `TRIPWISE_` prefix. For direct development, copy `.env.
 | `TRIPWISE_CORS_ORIGINS` | `["http://localhost:5173"]` | JSON array of allowed browser origins |
 | `TRIPWISE_WEATHER_PROVIDER` | `local` | Use `openweather` for live current conditions |
 | `TRIPWISE_OPENWEATHER_API_KEY` | unset | Personal OpenWeather credential |
+| `TRIPWISE_OPENAI_ENABLED` | `false` | Explicit opt-in required before any OpenAI request |
 | `TRIPWISE_OPENAI_API_KEY` | unset | Optional external AI provider credential |
 | `TRIPWISE_OPENAI_MODEL` | `gpt-5-mini` | Optional AI model name |
 | `VITE_API_URL` | `http://localhost:8000/api/v1` | Browser API root, embedded at frontend build time |
@@ -93,7 +94,11 @@ When `TRIPWISE_WEATHER_PROVIDER=openweather` and a key is configured, analysis u
 conditions from OpenWeather. These conditions are labeled as current observations rather than a
 future forecast. API or payload failures automatically fall back to the deterministic local provider.
 
-When a key is configured, itinerary generation uses the OpenAI Responses API with a Pydantic schema, following the official [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic local writer.
+Only when `TRIPWISE_OPENAI_ENABLED=true` and a key is configured does itinerary generation use the
+OpenAI Responses API with a Pydantic schema, following the official
+[Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).
+Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic
+local writer.
 
 ## Architecture
 

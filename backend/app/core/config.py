@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     demo_user_id: str = "00000000-0000-0000-0000-000000000001"
     demo_user_name: str = "TripWise Explorer"
     demo_user_email: str = "explorer@tripwise.local"
+    openai_enabled: bool = False
     openai_api_key: str | None = None
     openai_model: str = "gpt-5-mini"
     weather_provider: str = "local"
