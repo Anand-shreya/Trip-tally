@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.enums import TripStatus
 from app.core.exceptions import ConflictError, NotFoundError
-from app.models import Traveler, Trip, TripArchive
+from app.models import Traveler, Trip, TripArchive, TripPlanningProfile
 from app.schemas.trip import TravelerCreate, TripCreate
 
 
@@ -22,6 +22,7 @@ def create_trip(db: Session, user_id: str, payload: TripCreate) -> Trip:
         travel_style=payload.travel_style.value,
         status=TripStatus.PLANNING.value,
     )
+    trip.planning_profile = TripPlanningProfile(departure_city=payload.departure_city)
     db.add(trip)
     db.commit()
     db.refresh(trip)
@@ -32,7 +33,11 @@ def list_trips(db: Session, user_id: str) -> list[Trip]:
     statement = (
         select(Trip)
         .where(Trip.user_id == user_id)
-        .options(selectinload(Trip.travelers), selectinload(Trip.archive_record))
+        .options(
+            selectinload(Trip.travelers),
+            selectinload(Trip.archive_record),
+            selectinload(Trip.planning_profile),
+        )
         .order_by(Trip.start_date.desc())
     )
     return list(db.scalars(statement).unique())
@@ -46,6 +51,7 @@ def get_trip(db: Session, trip_id: str, user_id: str) -> Trip:
             selectinload(Trip.travelers),
             selectinload(Trip.places),
             selectinload(Trip.archive_record),
+            selectinload(Trip.planning_profile),
         )
     )
     trip = db.scalar(statement)

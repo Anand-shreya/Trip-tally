@@ -77,3 +77,29 @@ def test_schema_has_unique_trip_idempotency_index(db):
     indexes = inspect(db.bind).get_indexes("expenses")
     unique_columns = {tuple(index["column_names"]) for index in indexes if index["unique"]}
     assert ("trip_id", "idempotency_key") in unique_columns
+
+
+def test_deleting_trip_cascades_to_planning_profile(db):
+    from app.models import Trip, TripPlanningProfile, User
+
+    user = User(name="Demo", email="profile@example.test")
+    trip = Trip(
+        user=user,
+        name="Profile test",
+        destination="Kyoto",
+        start_date=date(2027, 4, 4),
+        end_date=date(2027, 4, 8),
+        number_of_days=5,
+        base_currency="INR",
+        travel_style="COMFORTABLE",
+        status="PLANNING",
+    )
+    trip.planning_profile = TripPlanningProfile(departure_city="Delhi")
+    db.add(trip)
+    db.commit()
+    trip_id = trip.id
+
+    db.delete(trip)
+    db.commit()
+
+    assert db.get(TripPlanningProfile, trip_id) is None

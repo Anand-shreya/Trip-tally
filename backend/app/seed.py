@@ -43,6 +43,7 @@ async def seed_demo(db: Session) -> str:
         settings.demo_user_id,
         TripCreate(
             name=DEMO_TRIP_NAME,
+            departure_city="Bengaluru",
             destination="Kerala",
             start_date=date(2027, 2, 14),
             number_of_days=5,

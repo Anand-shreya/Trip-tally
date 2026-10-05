@@ -45,6 +45,13 @@ class Trip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     archive_record: Mapped["TripArchive | None"] = relationship(
         back_populates="trip", cascade="all, delete-orphan", single_parent=True, uselist=False
     )
+    planning_profile: Mapped["TripPlanningProfile | None"] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", single_parent=True, uselist=False
+    )
+
+    @property
+    def departure_city(self) -> str | None:
+        return self.planning_profile.departure_city if self.planning_profile else None
 
     @property
     def is_archived(self) -> bool:
@@ -71,5 +78,6 @@ from app.models.expense import Expense  # noqa: E402, F401
 from app.models.itinerary import ItineraryDay  # noqa: E402, F401
 from app.models.job import Job  # noqa: E402, F401
 from app.models.place import Place  # noqa: E402, F401
+from app.models.planning_profile import TripPlanningProfile  # noqa: E402, F401
 from app.models.traveler import Traveler  # noqa: E402, F401
 from app.models.user import User  # noqa: E402, F401

@@ -25,6 +25,7 @@ def test_complete_trip_lifecycle_api(db: Session):
         "/api/v1/trips",
         json={
             "name": "Sri Lanka Trip",
+            "departure_city": "Delhi",
             "destination": "Sri Lanka",
             "start_date": "2026-09-05",
             "number_of_days": 3,
@@ -125,6 +126,7 @@ def test_trip_can_be_archived_and_restored_without_losing_its_status(db: Session
         "/api/v1/trips",
         json={
             "name": "Quiet coast",
+            "departure_city": "Bengaluru",
             "destination": "Gokarna",
             "start_date": "2026-11-10",
             "number_of_days": 4,

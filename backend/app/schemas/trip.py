@@ -8,6 +8,7 @@ from app.core.enums import TravelStyle, TripStatus
 
 class TripCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    departure_city: str = Field(min_length=1, max_length=200)
     destination: str = Field(min_length=1, max_length=200)
     start_date: date
     number_of_days: int = Field(gt=0, le=60)
@@ -15,7 +16,7 @@ class TripCreate(BaseModel):
     currency: str = Field(default="INR", min_length=3, max_length=3)
     travel_style: TravelStyle = TravelStyle.COMFORTABLE
 
-    @field_validator("name", "destination")
+    @field_validator("name", "departure_city", "destination")
     @classmethod
     def strip_text(cls, value: str) -> str:
         value = value.strip()
@@ -56,6 +57,7 @@ class TripRead(BaseModel):
 
     id: str
     name: str
+    departure_city: str | None
     destination: str
     start_date: date
     end_date: date

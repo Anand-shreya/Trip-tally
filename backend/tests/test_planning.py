@@ -21,6 +21,7 @@ def test_create_trip_derives_inclusive_end_date_and_normalizes_currency(db):
     user = make_user(db)
     payload = TripCreate(
         name="Island loop",
+        departure_city="Delhi",
         destination="Sri Lanka",
         start_date=date(2026, 9, 5),
         number_of_days=7,
@@ -36,6 +37,67 @@ def test_create_trip_derives_inclusive_end_date_and_normalizes_currency(db):
     assert trip.status == "PLANNING"
 
 
+def test_create_trip_persists_departure_city_in_planning_profile(db):
+    from app.models import TripPlanningProfile
+    from app.schemas.trip import TripCreate
+    from app.services.trip_service import create_trip
+
+    user = make_user(db)
+    trip = create_trip(
+        db,
+        user.id,
+        TripCreate(
+            name="Japan spring",
+            departure_city="Delhi",
+            destination="Kyoto",
+            start_date=date(2027, 4, 4),
+            number_of_days=5,
+            currency="INR",
+            travel_style="COMFORTABLE",
+        ),
+    )
+
+    profile = db.get(TripPlanningProfile, trip.id)
+    assert profile is not None
+    assert profile.departure_city == "Delhi"
+    assert profile.weather_report is None
+    assert trip.departure_city == "Delhi"
+
+
+def test_legacy_trip_without_profile_reads_null_departure_city(db):
+    from app.models import Trip, User
+
+    user = User(name="Legacy", email="legacy@example.test")
+    trip = Trip(
+        user=user,
+        name="Existing trip",
+        destination="Goa",
+        start_date=date(2026, 12, 1),
+        end_date=date(2026, 12, 3),
+        number_of_days=3,
+        base_currency="INR",
+        travel_style="BUDGET",
+        status="PLANNING",
+    )
+    db.add(trip)
+    db.commit()
+
+    assert trip.departure_city is None
+
+
+def test_trip_create_requires_nonblank_departure_city():
+    from app.schemas.trip import TripCreate
+
+    with pytest.raises(PydanticValidationError):
+        TripCreate(
+            name="Trip",
+            departure_city="   ",
+            destination="Goa",
+            start_date=date(2027, 1, 1),
+            number_of_days=2,
+        )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [("number_of_days", 0), ("budget", Decimal("-0.01")), ("currency", "RUPEE")],
@@ -45,6 +107,7 @@ def test_trip_request_rejects_invalid_values(field, value):
 
     data = {
         "name": "Trip",
+        "departure_city": "Delhi",
         "destination": "Goa",
         "start_date": date(2026, 1, 1),
         "number_of_days": 2,
@@ -69,6 +132,7 @@ def test_trip_lookup_hides_another_users_trip(db):
         owner.id,
         TripCreate(
             name="Private",
+            departure_city="Delhi",
             destination="Goa",
             start_date=date(2026, 1, 1),
             number_of_days=2,
@@ -93,6 +157,7 @@ async def test_analysis_is_deterministic_and_scores_are_bounded(db):
         user.id,
         TripCreate(
             name="Island loop",
+            departure_city="Delhi",
             destination="Sri Lanka",
             start_date=date(2026, 9, 5),
             number_of_days=7,
@@ -215,6 +280,7 @@ async def test_select_places_rejects_place_from_another_trip(db):
     def payload(name):
         return TripCreate(
             name=name,
+            departure_city="Delhi",
             destination="Sri Lanka",
             start_date=date(2026, 9, 5),
             number_of_days=4,
