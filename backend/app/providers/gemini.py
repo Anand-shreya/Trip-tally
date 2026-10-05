@@ -27,6 +27,7 @@ class GeminiProvider:
         instructions: str,
         input_messages: list[dict[str, Any]],
         text_format: type[BaseModel],
+        max_output_tokens: int | None = None,
     ) -> BaseModel:
         contents = []
         for message in input_messages:
@@ -36,16 +37,20 @@ class GeminiProvider:
                 raise ValueError("Gemini input message content must be text")
             contents.append({"role": role, "parts": [{"text": content}]})
 
+        generation_config: dict[str, Any] = {
+            "responseMimeType": "application/json",
+            "responseJsonSchema": text_format.model_json_schema(),
+        }
+        if max_output_tokens is not None:
+            generation_config["maxOutputTokens"] = max_output_tokens
+
         response = self._http.post(
             f"{GEMINI_API_BASE}/models/{quote(self.model, safe='')}:generateContent",
             headers={"x-goog-api-key": self._api_key},
             json={
                 "systemInstruction": {"parts": [{"text": instructions}]},
                 "contents": contents,
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                    "responseJsonSchema": text_format.model_json_schema(),
-                },
+                "generationConfig": generation_config,
             },
         )
         response.raise_for_status()
@@ -65,3 +70,6 @@ class GeminiProvider:
         if not output:
             raise RuntimeError("Gemini returned no structured output")
         return text_format.model_validate_json(output)
+
+    def close(self) -> None:
+        self._http.close()

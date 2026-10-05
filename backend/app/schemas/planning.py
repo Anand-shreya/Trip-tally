@@ -1,8 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.core.enums import TravelStyle
 
 
 class ResolvedLocation(BaseModel):
@@ -53,3 +55,116 @@ class WeatherReport(BaseModel):
     daily: list[DailyWeather]
     source: Literal["openweather", "openweather+open-meteo"]
     summary: str
+
+
+class EstimateRange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    minimum: Decimal = Field(ge=0)
+    typical: Decimal = Field(ge=0)
+    maximum: Decimal = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_order(self) -> "EstimateRange":
+        if not self.minimum <= self.typical <= self.maximum:
+            raise ValueError("estimate range must be ordered")
+        return self
+
+
+class BudgetCategories(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    flights: EstimateRange
+    accommodation: EstimateRange
+    food: EstimateRange
+    local_transport: EstimateRange
+    tickets: EstimateRange
+    activities: EstimateRange
+
+
+class BudgetFacts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    departure_city: str = Field(min_length=1, max_length=200)
+    destination: str = Field(min_length=1, max_length=200)
+    start_date: date
+    number_of_days: int = Field(ge=1, le=60)
+    traveler_count: int = Field(ge=1)
+    travel_style: TravelStyle
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+    @field_validator("departure_city", "destination")
+    @classmethod
+    def strip_city(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("city must not be empty")
+        return value
+
+
+class GeminiBudgetResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    categories: BudgetCategories
+
+
+class BudgetReport(BaseModel):
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    traveler_count: int = Field(ge=1)
+    number_of_days: int = Field(ge=1)
+    categories: BudgetCategories
+    total: EstimateRange
+
+
+Tag = Annotated[str, Field(min_length=1, max_length=40)]
+
+
+class PlaceSuggestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1, max_length=240)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    recommended_days: Decimal = Field(ge=Decimal("0.5"))
+    best_for: list[Tag] = Field(max_length=4)
+    relevance_score: Decimal = Field(ge=0, le=10)
+
+    @field_validator("name", "description")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("text must not be empty")
+        return value
+
+    @field_validator("best_for", mode="before")
+    @classmethod
+    def strip_tags(cls, value: object) -> object:
+        if isinstance(value, list):
+            return [item.strip() if isinstance(item, str) else item for item in value]
+        return value
+
+
+class PlaceFacts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    destination: str = Field(min_length=1, max_length=200)
+    number_of_days: int = Field(ge=1, le=60)
+    travel_style: TravelStyle
+    maximum_results: Literal[20] = 20
+
+    @field_validator("destination")
+    @classmethod
+    def strip_destination(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("destination must not be empty")
+        return value
+
+
+class GeminiPlacesResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    places: list[PlaceSuggestion] = Field(min_length=1, max_length=20)
