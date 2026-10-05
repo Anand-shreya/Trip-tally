@@ -175,13 +175,78 @@ p { line-height: 1.7; }
 .map-coordinate { display: flex; align-items: center; gap: .4rem; }.route-sketch { position: absolute; right: -30px; bottom: -40px; width: 55%; height: 65%; border: 1px dashed rgba(255,255,255,.55); border-radius: 50%; }.route-sketch span { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #f4c95d; }.route-sketch span:nth-child(1){left:15%;top:55%}.route-sketch span:nth-child(2){left:50%;top:30%}.route-sketch span:nth-child(3){left:72%;top:68%}
 .overview-stats { background: #fff; border: 1px solid rgba(20,33,61,.16); border-radius: 22px; padding: 1.2rem 1.8rem; }.overview-stats .stat:first-child { border: 0; }
 .overview-strip { display: grid; grid-template-columns: repeat(4,1fr); margin-top: 1.3rem; border-top: 1px solid rgba(20,33,61,.18); border-bottom: 1px solid rgba(20,33,61,.18); }.overview-strip > div { padding: 1.3rem; display: grid; gap: .3rem; border-right: 1px solid rgba(20,33,61,.18); }.overview-strip > div:last-child{border:0}.overview-strip svg{color:#1e6f6d}.overview-strip span{color:#697484;font-size:.78rem}.overview-strip strong{font-size:1.05rem}
-.plan-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 3rem; }.plan-metrics article { padding: 1.6rem; border-top: 4px solid #1e6f6d; background: #fff; box-shadow: 0 16px 44px rgba(20,33,61,.08); }.plan-metrics article:nth-child(2){border-color:#f4c95d}.plan-metrics span{display:block;color:#697484;margin:.8rem 0 .3rem}.plan-metrics strong{font-family:Fraunces,serif;font-size:2rem}.plan-metrics p{color:#667080;margin-bottom:0}
-.section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }.section-heading > div { display:flex;align-items:center;gap:.7rem}.section-heading span{color:#1e6f6d;font-weight:700}
-.place-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(250px,1fr)); gap: 1rem; }.place-card { background:#fff;border:2px solid transparent;border-radius:18px;padding:1.3rem;cursor:pointer;position:relative;display:block}.place-card.selected{border-color:#1e6f6d;background:#f1f8f7}.place-card input{position:absolute;right:1rem;top:1rem;width:20px;height:20px;accent-color:#1e6f6d}.place-score{width:46px;height:46px;border-radius:50%;background:#14213d;color:#fff;display:grid;place-items:center;font-weight:700}.place-card h3{font-size:1.65rem;margin-top:1rem}.place-card p{color:#667080;min-height:78px}.tag-row{display:flex;flex-wrap:wrap;gap:.35rem}.tag-row span{background:#dde8e7;border-radius:999px;padding:.3rem .6rem;font-size:.72rem}.place-card dl{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #e2e6e3;margin-top:1rem;padding-top:1rem}.place-card dt{color:#74808d;font-size:.7rem}.place-card dd{margin:.2rem 0 0;font-weight:700}.selection-bar{position:sticky;bottom:1rem;background:#14213d;color:#fff;padding:1rem 1.2rem;border-radius:16px;margin-top:1.2rem;display:flex;justify-content:space-between;align-items:center;box-shadow:0 14px 40px rgba(20,33,61,.25)}
-.plan-prompt { text-align:center;padding:4rem;border:1px dashed #91aaa7;border-radius:22px;background:#f1f8f7}.plan-prompt svg{color:#1e6f6d}.plan-prompt p{color:#637080}
+.planning-actions { display:flex;align-items:flex-end;gap:.8rem;flex-wrap:wrap;justify-content:flex-end }
+.departure-city-field { display:grid;gap:.3rem;color:#344259;font-size:.78rem;font-weight:700 }
+.departure-city-field input { width:190px;border:1px solid #afbfbd;border-radius:10px;background:#fff;padding:.68rem .8rem;color:#14213d }
+.departure-city-field small { color:#ba423b;font-weight:600 }
+.planning-retry { margin:-1rem 0 1.4rem;border-left:4px solid #d89a3d;background:#fff4cf;color:#6f5318;padding:.9rem 1rem;line-height:1.5 }
+.planning-report { display:grid;gap:2rem }
+.weather-report,.budget-report,.places-section { background:#fff;border:1px solid rgba(20,49,45,.16);padding:clamp(1.2rem,3vw,2rem) }
+.report-heading,.section-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.3rem }
+.report-heading>div,.section-heading>div { display:flex;align-items:flex-start;gap:.8rem }
+.report-heading h2,.section-heading h2 { font-size:clamp(1.8rem,3vw,2.5rem) }
+.report-heading p,.section-heading p { margin:.25rem 0 0;color:#65716e;max-width:62ch }
+.report-icon { width:44px;height:44px;display:grid;place-items:center;background:#eaf2ee;color:#2f6f5e;border-radius:50%;flex:0 0 auto }
+.budget-icon { background:#fff1cf;color:#8c6517 }
+.source-badge { flex:0 0 auto;border:1px solid #aac2bb;background:#eaf2ee;color:#1f5b4c;padding:.4rem .65rem;border-radius:999px;font-size:.72rem;font-weight:700 }
+.gemini-badge { border-color:#e6c579;background:#fff4cf;color:#6f5318 }
+.weather-observation { display:grid;grid-template-columns:minmax(220px,.72fr) minmax(0,1.28fr);background:#17312d;color:#fff }
+.weather-temperature { padding:clamp(1.5rem,4vw,3rem);display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.18) }
+.weather-temperature>span { color:#b9d7ce;font-weight:700 }
+.weather-temperature>strong { font-family:Fraunces,serif;font-size:clamp(3.4rem,7vw,6rem);line-height:1;font-variant-numeric:tabular-nums;margin:.35rem 0 }
+.weather-temperature p { margin:.2rem 0;color:#fff }
+.weather-temperature small { color:#b9d7ce;margin-top:1rem }
+.weather-details { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;padding:1rem }
+.weather-details div { display:grid;grid-template-columns:24px 1fr;gap:.1rem .65rem;align-content:center;padding:1rem;border-bottom:1px solid rgba(255,255,255,.14) }
+.weather-details svg { grid-row:1/3;color:#d89a3d }
+.weather-details dt { color:#b9d7ce;font-size:.72rem }
+.weather-details dd { margin:0;font-weight:700;font-variant-numeric:tabular-nums }
+.weather-period { margin-top:1.5rem;padding-top:1.4rem;border-top:1px solid #d9e2de }
+.weather-period h3 { font-size:1.45rem }
+.weather-period>p { margin:.25rem 0 1rem;color:#66736f }
+.historical-weather { border-top-color:#e6c579 }
+.weather-daily-list { display:grid;gap:.55rem }
+.weather-day { display:grid;grid-template-columns:minmax(150px,.8fr) minmax(130px,.6fr) minmax(320px,1.6fr);gap:1rem;align-items:center;padding:.85rem 0;border-top:1px solid #e3e9e6 }
+.weather-day>div { display:grid;gap:.18rem }
+.weather-day>div>span,.weather-day>div:first-child span { color:#697570;font-size:.75rem }
+.weather-day dl { display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;margin:0 }
+.weather-day dl div { display:grid;gap:.15rem }
+.weather-day dt { color:#73807c;font-size:.68rem }
+.weather-day dd { margin:0;font-size:.8rem;font-weight:700 }
+.weather-report>footer,.budget-report>footer { margin-top:1.3rem;color:#6e7975;font-size:.75rem }
+.budget-total { background:#fff4cf;border-left:5px solid #d89a3d;padding:1.2rem 1.4rem;display:grid;gap:.2rem }
+.budget-total span { color:#6f5a26;font-size:.78rem }
+.budget-total strong { font-family:Fraunces,serif;font-size:clamp(2.5rem,5vw,4.5rem);font-variant-numeric:tabular-nums }
+.budget-total p { margin:0;color:#6f5a26;font-weight:700 }
+.budget-table-wrap { overflow-x:auto;margin-top:1.2rem }
+.budget-table { width:100%;border-collapse:collapse;min-width:620px;font-variant-numeric:tabular-nums }
+.budget-table th,.budget-table td { padding:.85rem;text-align:right;border-bottom:1px solid #e0e6e3 }
+.budget-table th:first-child { text-align:left }
+.budget-table thead th { color:#687570;font-size:.72rem;font-weight:700 }
+.budget-table tbody th { display:flex;align-items:center;gap:.45rem }
+.section-heading>span { color:#2f6f5e;font-weight:700;white-space:nowrap }
+.place-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:1rem }
+.place-card { background:#fbfaf6;border:1px solid #dbe3df;padding:1.3rem;display:flex;flex-direction:column;min-height:390px }
+.place-card.selected { border-color:#2f6f5e;box-shadow:inset 0 0 0 1px #2f6f5e }
+.place-card-topline { display:flex;align-items:center;justify-content:space-between;gap:1rem }
+.place-card-topline label { display:flex;align-items:center;gap:.45rem;font-size:.76rem;font-weight:700;color:#43514d }
+.place-card input { width:20px;height:20px;accent-color:#2f6f5e }
+.place-score { width:46px;height:46px;border-radius:50%;background:#17312d;color:#fff;display:grid;place-items:center;font-weight:700 }
+.place-card h3 { font-size:1.65rem;margin-top:1rem }
+.place-card>p { color:#66726f;min-height:72px }
+.tag-row { display:flex;flex-wrap:wrap;gap:.35rem }
+.tag-row span { background:#eaf2ee;border-radius:999px;padding:.3rem .6rem;font-size:.72rem }
+.place-card dl { display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #dfe5e2;margin:1rem 0;padding-top:1rem }
+.place-card dt { color:#74807c;font-size:.7rem }
+.place-card dd { margin:.2rem 0 0;font-weight:700 }
+.map-link { display:inline-flex;align-items:center;gap:.4rem;margin-top:auto;padding-top:1rem;color:#1f5b4c;font-weight:700;text-underline-offset:3px }
+.selection-bar { position:sticky;bottom:1rem;background:#17312d;color:#fff;padding:1rem 1.2rem;margin-top:1.2rem;display:flex;justify-content:space-between;align-items:center;box-shadow:0 14px 40px rgba(20,33,61,.25);z-index:2 }
+.plan-prompt { text-align:center;padding:4rem;border:1px dashed #91aaa7;background:#eaf2ee }
+.plan-prompt svg { color:#2f6f5e }
+.plan-prompt p { color:#63706c;max-width:62ch;margin:1rem auto 0 }
 .itinerary-timeline { display:grid;gap:2.5rem }.itinerary-day > header{display:grid;grid-template-columns:100px 1fr;gap:1rem;padding-bottom:1rem;border-bottom:2px solid #14213d}.itinerary-day > header > span{font-weight:700;color:#1e6f6d}.itinerary-day h2{font-size:2rem}.itinerary-day header p{margin:.3rem 0;color:#687383}.activity-list{margin-left:99px;border-left:1px dashed #1e6f6d;padding:1.3rem 0 0 1.3rem}.activity{display:grid;grid-template-columns:90px 1fr auto;gap:1rem;padding:1.2rem;background:#fff;border-radius:14px;margin-bottom:.8rem}.activity time,.activity div>span{display:flex;align-items:center;gap:.35rem;color:#1e6f6d;font-size:.8rem}.activity h3{font-size:1.25rem}.activity p{margin:.35rem 0;color:#67717f}.activity>strong{font-variant-numeric:tabular-nums}
-@media(max-width:900px){.new-trip-page{grid-template-columns:1fr}.new-trip-intro{position:relative;top:auto;height:auto;min-height:420px}.overview-grid{grid-template-columns:1fr}.overview-strip{grid-template-columns:1fr 1fr}.plan-metrics{grid-template-columns:1fr}}
-@media(max-width:600px){.dashboard-heading{align-items:flex-start;flex-direction:column}.form-row{grid-template-columns:1fr}.overview-strip{grid-template-columns:1fr 1fr}.selection-bar{align-items:flex-start;flex-direction:column;gap:1rem}.itinerary-day>header{grid-template-columns:1fr}.activity-list{margin-left:0}.activity{grid-template-columns:1fr}.activity>strong{justify-self:start}}
+@media(max-width:900px){.new-trip-page{grid-template-columns:1fr}.new-trip-intro{position:relative;top:auto;height:auto;min-height:420px}.overview-grid{grid-template-columns:1fr}.overview-strip{grid-template-columns:1fr 1fr}.weather-observation{grid-template-columns:1fr}.weather-temperature{border-right:0;border-bottom:1px solid rgba(255,255,255,.18)}.weather-day{grid-template-columns:1fr 1fr}.weather-day dl{grid-column:1/-1}.report-heading,.section-heading{flex-direction:column}}
+@media(max-width:600px){.dashboard-heading{align-items:flex-start;flex-direction:column}.form-row{grid-template-columns:1fr}.overview-strip{grid-template-columns:1fr 1fr}.planning-actions{justify-content:flex-start;width:100%}.departure-city-field,.departure-city-field input{width:100%}.weather-details{grid-template-columns:1fr}.weather-day{grid-template-columns:1fr}.weather-day dl{grid-template-columns:repeat(2,1fr)}.selection-bar{align-items:flex-start;flex-direction:column;gap:1rem}.itinerary-day>header{grid-template-columns:1fr}.activity-list{margin-left:0}.activity{grid-template-columns:1fr}.activity>strong{justify-self:start}}
 
 .expense-total { background:#14213d;color:#fff;border-radius:22px;padding:clamp(1.5rem,4vw,3rem);display:grid;grid-template-columns:1fr auto;align-items:end }.expense-total span{color:#b8cfcd}.expense-total strong{font-family:Fraunces,serif;font-size:clamp(2.8rem,7vw,5rem);font-variant-numeric:tabular-nums}.expense-total p{grid-column:1/-1;margin:.5rem 0 0;color:#b8cfcd}
 .category-strip { display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-bottom:1px solid rgba(20,33,61,.18);margin:1rem 0 1.3rem}.category-strip>div{padding:1rem;border-right:1px solid rgba(20,33,61,.15);display:grid;gap:.2rem}.category-strip span{font-size:.75rem;color:#687482}.category-strip strong{font-variant-numeric:tabular-nums}

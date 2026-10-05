@@ -1,67 +1,171 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CloudRain, IndianRupee, MapPinned, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Sparkles } from 'lucide-react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
+import { BudgetReport } from '../components/planning/BudgetReport'
+import { PlaceRecommendations } from '../components/planning/PlaceRecommendations'
+import { WeatherReport } from '../components/planning/WeatherReport'
 import { Button, ErrorState, LoadingState, PageHeader } from '../components/ui'
-import { api } from '../lib/api'
-import { formatMoney } from '../lib/format'
-import { usePlaces, useTrip } from '../lib/queries'
+import { api, ApiError } from '../lib/api'
+import { usePlanningAnalysis, useTrip } from '../lib/queries'
 import { queryKeys } from '../lib/queryKeys'
 import type { Place, PlanningAnalysis } from '../lib/types'
+
+const retryMessages: Record<string, string> = {
+  weather_unavailable: 'Weather providers could not be reached. Your saved analysis is still here.',
+  budget_unavailable: 'Gemini could not estimate the budget. Your saved analysis is still here.',
+  places_unavailable: 'Gemini could not suggest places. Your saved analysis is still here.',
+  invalid_provider_response: 'A provider returned invalid data. Your saved analysis is still here.',
+}
+
+function retryMessage(error: unknown): string {
+  if (error instanceof ApiError && error.details && typeof error.details === 'object') {
+    const code = 'code' in error.details ? error.details.code : undefined
+    if (typeof code === 'string' && retryMessages[code]) return retryMessages[code]
+  }
+  return 'Analysis could not be refreshed. Your saved analysis is still here.'
+}
 
 export function PlanPage() {
   const { id = '' } = useParams()
   const queryClient = useQueryClient()
   const trip = useTrip(id)
-  const places = usePlaces(id)
-  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const savedAnalysis = usePlanningAnalysis(id)
+  const [departureCity, setDepartureCity] = useState('')
+  const [departureError, setDepartureError] = useState('')
+  const [selection, setSelection] = useState<Set<string> | null>(null)
   const [saved, setSaved] = useState(false)
+
   const analysis = useMutation({
-    mutationFn: () => api.post<PlanningAnalysis>(`/trips/${id}/analyze`),
+    mutationFn: () => api.post<PlanningAnalysis>(
+      `/trips/${id}/analyze`,
+      trip.data?.departure_city ? {} : { departure_city: departureCity.trim() },
+    ),
     onSuccess: (result) => {
       queryClient.setQueryData(queryKeys.analysis(id), result)
       queryClient.setQueryData(queryKeys.places(id), result.places)
-      queryClient.invalidateQueries({ queryKey: queryKeys.trip(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trip(id), exact: true })
       setSelection(new Set(result.places.filter((place) => place.selected).map((place) => place.id)))
+      setSaved(false)
     },
   })
+
+  const report = savedAnalysis.data
+  const activeSelection = selection ?? new Set(
+    report?.places.filter((place) => place.selected).map((place) => place.id) ?? [],
+  )
   const save = useMutation({
-    mutationFn: (placeIds: string[]) => api.post<Place[]>(`/trips/${id}/places/select`, { place_ids: placeIds }),
-    onSuccess: (result) => { queryClient.setQueryData(queryKeys.places(id), result); setSaved(true) },
+    mutationFn: () => api.post<Place[]>(`/trips/${id}/places/select`, {
+      place_ids: [...activeSelection],
+    }),
+    onSuccess: (selectedPlaces) => {
+      const selectedIds = new Set(selectedPlaces.map((place) => place.id))
+      const mergeSelection = (places: Place[]) => places.map((place) => ({
+        ...place,
+        selected: selectedIds.has(place.id),
+      }))
+      queryClient.setQueryData<PlanningAnalysis | null>(
+        queryKeys.analysis(id),
+        (current) => current ? { ...current, places: mergeSelection(current.places) } : current,
+      )
+      queryClient.setQueryData<Place[]>(
+        queryKeys.places(id),
+        (current) => mergeSelection(current ?? report?.places ?? []),
+      )
+      setSelection(selectedIds)
+      setSaved(true)
+    },
   })
-  const available = useMemo(() => analysis.data?.places ?? places.data ?? [], [analysis.data?.places, places.data])
-  const selectedCount = useMemo(() => available.filter((place) => selection.has(place.id) || (place.selected && !selection.size)).length, [available, selection])
-  if (trip.isLoading || places.isLoading) return <LoadingState label="Checking the map…" />
-  if (trip.isError || !trip.data) return <ErrorState error={trip.error} retry={() => trip.refetch()} />
+
+  if (trip.isLoading || savedAnalysis.isLoading) {
+    return <LoadingState label="Loading the saved trip briefing…" />
+  }
+  if (trip.isError || !trip.data) {
+    return <ErrorState error={trip.error} retry={() => trip.refetch()} />
+  }
+  if (savedAnalysis.isError) {
+    return <ErrorState error={savedAnalysis.error} retry={() => savedAnalysis.refetch()} />
+  }
+
   const tripData = trip.data
-  const toggle = (placeId: string) => setSelection((current) => {
-    const base = current.size ? new Set(current) : new Set(available.filter((place) => place.selected).map((place) => place.id))
-    if (base.has(placeId)) base.delete(placeId)
-    else base.add(placeId)
-    return base
-  })
+  const startAnalysis = () => {
+    if (!tripData.departure_city && !departureCity.trim()) {
+      setDepartureError('Departure city is required.')
+      return
+    }
+    setDepartureError('')
+    analysis.mutate()
+  }
+  const toggle = (placeId: string) => {
+    setSaved(false)
+    setSelection((current) => {
+      const next = new Set(current ?? activeSelection)
+      if (next.has(placeId)) next.delete(placeId)
+      else next.add(placeId)
+      return next
+    })
+  }
+
+  const action = (
+    <div className="planning-actions">
+      {!tripData.departure_city && (
+        <label className="departure-city-field">
+          Departure city
+          <input
+            value={departureCity}
+            onChange={(event) => {
+              setDepartureCity(event.target.value)
+              if (event.target.value.trim()) setDepartureError('')
+            }}
+            aria-invalid={!!departureError}
+            placeholder="Mumbai"
+          />
+          {departureError && <small>{departureError}</small>}
+        </label>
+      )}
+      <Button className="secondary" onClick={startAnalysis} disabled={analysis.isPending}>
+        {analysis.isPending ? 'Analyzing…' : report ? 'Refresh analysis' : 'Analyze trip'}
+      </Button>
+    </div>
+  )
+
   return (
     <>
-      <PageHeader title="Shape the route" intro="Weather and costs set the guardrails. You choose the places worth the time." action={<Button className="secondary" onClick={() => analysis.mutate()} disabled={analysis.isPending}>{analysis.isPending ? 'Analyzing…' : available.length ? 'Refresh analysis' : 'Analyze trip'}</Button>} />
-      {analysis.isError && <ErrorState error={analysis.error} />}
-      <section className="plan-metrics">
-        <article><CloudRain /><span>Weather fit</span><strong>{tripData.weather_score ? `${tripData.weather_score}/10` : 'Pending'}</strong><p>{tripData.weather_summary ?? 'Analyze your dates for a seasonal read.'}</p></article>
-        <article><IndianRupee /><span>Typical budget</span><strong>{tripData.estimated_cost ? formatMoney(tripData.estimated_cost, tripData.base_currency) : 'Pending'}</strong><p>{tripData.estimated_cost_min ? `${formatMoney(tripData.estimated_cost_min, tripData.base_currency)} – ${formatMoney(tripData.estimated_cost_max, tripData.base_currency)}` : 'Based on duration, group, and travel style.'}</p></article>
-      </section>
-      {available.length > 0 ? <section className="places-section">
-        <div className="section-heading"><div><MapPinned /><h2>Recommended stops</h2></div><span>{selectedCount} selected</span></div>
-        <div className="place-grid">{available.map((place) => {
-          const checked = selection.size ? selection.has(place.id) : place.selected
-          return <label className={`place-card ${checked ? 'selected' : ''}`} key={place.id}>
-            <input type="checkbox" checked={checked} onChange={() => toggle(place.id)} aria-label={`Select ${place.name}`} />
-            <div className="place-score">{place.relevance_score}</div><h3>{place.name}</h3><p>{place.description}</p>
-            <div className="tag-row">{place.best_for.map((tag) => <span key={tag}>{tag}</span>)}</div>
-            <dl><div><dt>Time</dt><dd>{place.recommended_days} days</dd></div><div><dt>Relevance</dt><dd>{place.relevance_score}/10</dd></div></dl>
-          </label>
-        })}</div>
-        <div className="selection-bar"><span>{saved ? 'Route saved. Ready for an itinerary.' : `${selectedCount} places in this route`}</span><Button onClick={() => save.mutate(selection.size ? [...selection] : available.filter((place) => place.selected).map((place) => place.id))} disabled={!selectedCount || save.isPending}>{save.isPending ? 'Saving…' : 'Save selected places'}</Button></div>
-      </section> : <div className="plan-prompt"><Sparkles /><h2>See what fits</h2><p>Run analysis to compare weather, time, cost, and travel efficiency.</p></div>}
+      <PageHeader
+        title="Shape the route"
+        intro="Weather comes from weather services. Gemini estimates the group budget and suggests places."
+        action={action}
+      />
+      {analysis.isPending && (
+        <LoadingState label="Fetching weather, budget, and places…" />
+      )}
+      {analysis.isError && (
+        <div className="planning-retry" role="alert">{retryMessage(analysis.error)}</div>
+      )}
+
+      {report ? (
+        <div className="planning-report">
+          <WeatherReport report={report.weather} analyzedAt={report.analyzed_at} />
+          <BudgetReport report={report.budget} model={report.budget_model} />
+          <PlaceRecommendations
+            places={report.places}
+            destination={tripData.destination}
+            selection={activeSelection}
+            onToggle={toggle}
+            onSave={() => save.mutate()}
+            isSaving={save.isPending}
+            saved={saved}
+          />
+          {save.isError && <div className="planning-retry" role="alert">Selected places could not be saved. Try again.</div>}
+        </div>
+      ) : (
+        <div className="plan-prompt">
+          <Sparkles />
+          <h2>Build your trip briefing</h2>
+          <p>Analyze once to fetch weather, a flight-inclusive budget, and relevant places. Nothing runs until you choose Analyze trip.</p>
+        </div>
+      )}
     </>
   )
 }
