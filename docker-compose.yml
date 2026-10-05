@@ -32,6 +32,8 @@ services:
       TRIPWISE_OPENAI_API_KEY: ${TRIPWISE_OPENAI_API_KEY:-}
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend/.tripwise:/app/.tripwise
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +57,8 @@ services:
       TRIPWISE_REDIS_URL: redis://redis:6379/0
       TRIPWISE_QUEUE_MODE: redis
       TRIPWISE_OPENAI_API_KEY: ${TRIPWISE_OPENAI_API_KEY:-}
+    volumes:
+      - ./backend/.tripwise:/app/.tripwise
     depends_on:
       db:
         condition: service_healthy

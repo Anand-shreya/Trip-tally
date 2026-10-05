@@ -2,7 +2,7 @@
 
 TripWise is a full-stack travel itinerary planner and shared-expense tracker. Create a trip, get deterministic weather and budget guidance, choose recommended places, generate a day-by-day itinerary, record equal or custom expenses, and finish with exact balances and a settlement plan.
 
-The application is deliberately useful without paid services: its default weather, destination, currency, itinerary, and narrative providers are local and deterministic. An OpenAI key is optional.
+The application is deliberately useful without paid services: its default weather, destination, currency, itinerary, and narrative providers are local and deterministic. Eligible ChatGPT users can connect their plan for AI generation without putting a key in the browser; an OpenAI API key remains an optional, explicitly enabled alternative.
 
 ## What is included
 
@@ -59,6 +59,14 @@ make seed
 
 The backend stores the direct-development SQLite database at `backend/tripwise.db`.
 
+## Connect a ChatGPT plan
+
+Start both local services, open [http://localhost:5173](http://localhost:5173), and choose **Continue with ChatGPT** in the top bar. During the Sign in with ChatGPT preview, eligible ChatGPT Plus and Pro accounts can authorize TripWise to use their plan for supported model inference.
+
+Authorization returns to the loopback backend at `127.0.0.1`. Access, refresh, and ID tokens never enter browser storage: the backend writes them to the Git-ignored `backend/.tripwise/chatgpt-credentials.json` file with owner-only permissions. After connecting, open the **Using ChatGPT plan** control to choose a listable model, open ChatGPT usage settings, or disconnect. Disconnect revokes the renewable session before removing local tokens while retaining the non-secret host/client registration for a later sign-in.
+
+Sign in with ChatGPT is separate from an OpenAI API key and API billing. TripWise prefers a connected ChatGPT plan, uses the legacy API-key route only when it is explicitly enabled, and otherwise keeps using the deterministic local provider. It never falls through from a failed ChatGPT-plan request to the API-key billing path.
+
 ## Demo workflow
 
 1. Create a trip with destination, dates, currency, budget, travel style, and travelers.
@@ -86,6 +94,9 @@ Backend settings use the `TRIPWISE_` prefix. For direct development, copy `.env.
 | `TRIPWISE_OPENAI_ENABLED` | `false` | Explicit opt-in required before any OpenAI request |
 | `TRIPWISE_OPENAI_API_KEY` | unset | Optional external AI provider credential |
 | `TRIPWISE_OPENAI_MODEL` | `gpt-5-mini` | Optional AI model name |
+| `TRIPWISE_CHATGPT_CREDENTIALS_PATH` | `.tripwise/chatgpt-credentials.json` | Backend-only Sign in with ChatGPT session file |
+| `TRIPWISE_CHATGPT_REDIRECT_URI` | `http://127.0.0.1:8000/api/v1/auth/chatgpt/callback` | Required loopback OAuth callback; do not replace `127.0.0.1` with `localhost` |
+| `TRIPWISE_FRONTEND_URL` | `http://localhost:5173` | Browser destination after OAuth completes |
 | `VITE_API_URL` | `http://localhost:8000/api/v1` | Browser API root, embedded at frontend build time |
 
 When `TRIPWISE_OPENAI_API_KEY` is absent, TripWise uses its deterministic itinerary and prose provider. The core product remains fully functional.
@@ -94,11 +105,7 @@ When `TRIPWISE_WEATHER_PROVIDER=openweather` and a key is configured, analysis u
 conditions from OpenWeather. These conditions are labeled as current observations rather than a
 future forecast. API or payload failures automatically fall back to the deterministic local provider.
 
-Only when `TRIPWISE_OPENAI_ENABLED=true` and a key is configured does itinerary generation use the
-OpenAI Responses API with a Pydantic schema, following the official
-[Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).
-Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic
-local writer.
+When ChatGPT is connected, TripWise uses the selected listable model through streaming Responses requests with `store=false` and Pydantic-validated structured output. The implementation follows the official [Sign in with ChatGPT documentation](https://developers.openai.com/siwc/token-sharing-open-source). Only when no ChatGPT plan is active, `TRIPWISE_OPENAI_ENABLED=true`, and a key is configured does the legacy adapter use API billing. Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic local writer.
 
 ## Architecture
 
@@ -110,6 +117,7 @@ React + TanStack Query
 FastAPI routers -> domain services -> SQLAlchemy -> PostgreSQL / SQLite
                          |
                          +-> deterministic provider adapters
+                         +-> Sign in with ChatGPT token + model session
                          +-> durable Job -> inline handler or Redis/RQ worker
 ```
 
@@ -147,6 +155,11 @@ All application routes are rooted at `/api/v1`.
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | API health |
+| `GET` | `/auth/chatgpt/start` | Start loopback Sign in with ChatGPT authorization |
+| `GET` | `/auth/chatgpt/callback` | Validate the OAuth callback and return to the frontend |
+| `GET` | `/auth/chatgpt/status` | Read safe account, plan, and selected-model status |
+| `POST` | `/auth/chatgpt/model` | Select a model available to the connected plan |
+| `POST` | `/auth/chatgpt/disconnect` | Revoke and clear the ChatGPT session |
 | `GET`, `POST` | `/trips` | List or create trips |
 | `GET`, `DELETE` | `/trips/{trip_id}` | Read or delete a trip |
 | `POST`, `DELETE` | `/trips/{trip_id}/archive` | Archive or restore a trip |
@@ -198,4 +211,4 @@ Backend tests run against in-memory SQLite through the same SQLAlchemy/service b
 
 ## Deliberate MVP boundaries
 
-This release does not include login/accounts, booking, live multi-user collaboration, a maps UI, receipt OCR, or production payment flows. The fixed demo user and provider interfaces keep the domain ready for those additions without presenting incomplete security or booking features as production-ready behavior.
+This release does not include TripWise user accounts, booking, live multi-user collaboration, a maps UI, receipt OCR, or production payment flows. Sign in with ChatGPT authorizes only the AI provider and does not replace the fixed TripWise demo user. The fixed demo user and provider interfaces keep the domain ready for application authentication later without presenting incomplete security or booking features as production-ready behavior.
