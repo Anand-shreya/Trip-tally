@@ -6,8 +6,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { usePlanningAnalysis } from '../src/lib/queries'
+import { queryKeys } from '../src/lib/queryKeys'
 import type { PlanningAnalysis, Trip } from '../src/lib/types'
 import { NewTripPage } from '../src/pages/NewTripPage'
+import { OverviewPage } from '../src/pages/OverviewPage'
 import { PlanPage } from '../src/pages/PlanPage'
 
 function renderPage(node: ReactNode, path = '/', pattern = '*') {
@@ -382,5 +384,33 @@ describe('planning analysis interactions', () => {
       place_ids: ['red-fort', 'india-gate'],
     })
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/analyze'))).toHaveLength(1)
+  })
+})
+
+describe('overview planning compatibility', () => {
+  it('shows API-sourced current weather without a fabricated fit score', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+    client.setQueryData(queryKeys.trip('trip-1'), {
+      ...trip,
+      weather_score: '8.7',
+      weather_rating: 'EXCELLENT',
+      weather_summary: 'Clear skies, 28°C with a light breeze.',
+    })
+    client.setQueryData(queryKeys.places('trip-1'), [])
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/trips/trip-1']}>
+          <Routes><Route path="/trips/:id" element={<OverviewPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText(/current weather/i)).toBeInTheDocument()
+    expect(screen.getByText(/clear.*28/i)).toBeInTheDocument()
+    expect(screen.queryByText(/weather fit/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\/10/)).not.toBeInTheDocument()
   })
 })
