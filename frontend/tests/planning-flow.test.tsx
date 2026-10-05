@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { NewTripPage } from '../src/pages/NewTripPage'
 import { PlanPage } from '../src/pages/PlanPage'
+import { usePlanningAnalysis } from '../src/lib/queries'
 
 
 function renderPage(node: ReactNode, path = '/', pattern = '*') {
@@ -36,6 +37,7 @@ describe('trip creation', () => {
     const user = userEvent.setup()
 
     await user.type(screen.getByLabelText(/trip name/i), 'Island loop')
+    await user.type(screen.getByLabelText(/departure city/i), 'Delhi')
     await user.type(screen.getByLabelText(/destination/i), 'Sri Lanka')
     await user.type(screen.getByLabelText(/start date/i), '2026-09-05')
     await user.clear(screen.getByLabelText(/days/i))
@@ -44,14 +46,36 @@ describe('trip creation', () => {
     await user.click(screen.getByRole('button', { name: /create trip/i }))
 
     await waitFor(() => expect(calls).toHaveLength(4))
+    expect(calls[0].body).toMatchObject({ departure_city: 'Delhi', destination: 'Sri Lanka' })
     expect(calls.slice(1).map((call) => call.body.name)).toEqual(['Shreya', 'Rahul', 'Amit'])
   })
 })
 
 describe('trip planning', () => {
+  it('loads an absent saved analysis once without posting or showing an error', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ detail: 'Analysis not found' }), { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    function AnalysisProbe() {
+      const analysis = usePlanningAnalysis('trip-1')
+      if (analysis.isLoading) return <p>Loading analysis</p>
+      if (analysis.isError) return <p>Analysis failed</p>
+      return <p>{analysis.data === null ? 'No analysis yet' : 'Analysis ready'}</p>
+    }
+
+    renderPage(<AnalysisProbe />)
+
+    expect(await screen.findByText('No analysis yet')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/trips/trip-1/analysis'),
+      expect.not.objectContaining({ method: 'POST' }),
+    )
+  })
+
   it('runs analysis, selects a place, and saves the route', async () => {
     const trip = {
-      id: 'trip-1', name: 'Island loop', destination: 'Sri Lanka', start_date: '2026-09-05',
+      id: 'trip-1', name: 'Island loop', departure_city: 'Delhi', destination: 'Sri Lanka', start_date: '2026-09-05',
       end_date: '2026-09-07', number_of_days: 3, base_currency: 'INR', budget: '30000.00',
       travel_style: 'COMFORTABLE', status: 'PLANNING', weather_score: null, weather_rating: null,
       weather_summary: null, estimated_cost_min: null, estimated_cost: null, estimated_cost_max: null,

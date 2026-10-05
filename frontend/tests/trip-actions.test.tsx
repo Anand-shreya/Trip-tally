@@ -12,6 +12,7 @@ import { OverviewPage } from '../src/pages/OverviewPage'
 const activeTrip: Trip = {
   id: 'trip-1',
   name: 'Quiet coast',
+  departure_city: 'Bengaluru',
   destination: 'Gokarna',
   start_date: '2026-11-10',
   end_date: '2026-11-13',

@@ -8,7 +8,7 @@ import { api } from '../lib/api'
 import { formatMoney } from '../lib/format'
 import { usePlaces, useTrip } from '../lib/queries'
 import { queryKeys } from '../lib/queryKeys'
-import type { Analysis, Place } from '../lib/types'
+import type { Place, PlanningAnalysis } from '../lib/types'
 
 export function PlanPage() {
   const { id = '' } = useParams()
@@ -18,8 +18,9 @@ export function PlanPage() {
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState(false)
   const analysis = useMutation({
-    mutationFn: () => api.post<Analysis>(`/trips/${id}/analyze`),
+    mutationFn: () => api.post<PlanningAnalysis>(`/trips/${id}/analyze`),
     onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.analysis(id), result)
       queryClient.setQueryData(queryKeys.places(id), result.places)
       queryClient.invalidateQueries({ queryKey: queryKeys.trip(id) })
       setSelection(new Set(result.places.filter((place) => place.selected).map((place) => place.id)))
@@ -54,9 +55,9 @@ export function PlanPage() {
           const checked = selection.size ? selection.has(place.id) : place.selected
           return <label className={`place-card ${checked ? 'selected' : ''}`} key={place.id}>
             <input type="checkbox" checked={checked} onChange={() => toggle(place.id)} aria-label={`Select ${place.name}`} />
-            <div className="place-score">{place.overall_score}</div><h3>{place.name}</h3><p>{place.description}</p>
+            <div className="place-score">{place.relevance_score}</div><h3>{place.name}</h3><p>{place.description}</p>
             <div className="tag-row">{place.best_for.map((tag) => <span key={tag}>{tag}</span>)}</div>
-            <dl><div><dt>Time</dt><dd>{place.recommended_days} days</dd></div><div><dt>Estimate</dt><dd>{formatMoney(place.estimated_cost, tripData.base_currency)}</dd></div></dl>
+            <dl><div><dt>Time</dt><dd>{place.recommended_days} days</dd></div><div><dt>Relevance</dt><dd>{place.relevance_score}/10</dd></div></dl>
           </label>
         })}</div>
         <div className="selection-bar"><span>{saved ? 'Route saved. Ready for an itinerary.' : `${selectedCount} places in this route`}</span><Button onClick={() => save.mutate(selection.size ? [...selection] : available.filter((place) => place.selected).map((place) => place.id))} disabled={!selectedCount || save.isPending}>{save.isPending ? 'Saving…' : 'Save selected places'}</Button></div>

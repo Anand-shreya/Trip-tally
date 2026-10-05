@@ -11,6 +11,7 @@ import { queryKeys } from '../lib/queryKeys'
 
 const schema = z.object({
   name: z.string().trim().min(1),
+  departure_city: z.string().trim().min(1),
   destination: z.string().trim().min(1),
   start_date: z.string().min(1),
   number_of_days: z.coerce.number().int().min(1).max(60),
@@ -34,6 +35,7 @@ export function NewTripPage() {
       const names = parsed.travelers.split(/[,\n]/).map((name) => name.trim()).filter(Boolean)
       const trip = await api.post<{ trip_id: string; status: string }>('/trips', {
         name: parsed.name,
+        departure_city: parsed.departure_city,
         destination: parsed.destination,
         start_date: parsed.start_date,
         number_of_days: parsed.number_of_days,
@@ -67,6 +69,7 @@ export function NewTripPage() {
         <form className="trip-form" onSubmit={submit} noValidate>
           <div className="form-section"><span className="form-marker"><MapPin /></span><div><h2>Where</h2><p>Name the route and its main destination.</p></div></div>
           <label>Trip name<input {...register('name', { required: true })} placeholder="Sri Lanka loop" />{errors.name && <small>Trip name is required.</small>}</label>
+          <label>Departure city<input {...register('departure_city', { required: true })} placeholder="Delhi" />{errors.departure_city && <small>Departure city is required.</small>}</label>
           <label>Destination<input {...register('destination', { required: true })} placeholder="Sri Lanka" />{errors.destination && <small>Destination is required.</small>}</label>
           <div className="form-section"><span className="form-marker"><CalendarDays /></span><div><h2>When & how</h2><p>Set the dates, comfort, and guardrails.</p></div></div>
           <div className="form-row"><label>Start date<input type="date" {...register('start_date', { required: true })} /></label><label>Days<input type="number" min="1" max="60" {...register('number_of_days', { valueAsNumber: true })} /></label></div>

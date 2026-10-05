@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { api } from './api'
+import { api, ApiError } from './api'
 import { queryKeys } from './queryKeys'
-import type { Balance, Expense, ItineraryDay, Place, Trip, TripSummary, Traveler } from './types'
+import type { Balance, Expense, ItineraryDay, Place, PlanningAnalysis, Trip, TripSummary, Traveler } from './types'
 
 export function useTrips() {
   return useQuery({ queryKey: queryKeys.trips, queryFn: () => api.get<Trip[]>('/trips') })
@@ -10,6 +10,22 @@ export function useTrips() {
 
 export function useTrip(tripId: string) {
   return useQuery({ queryKey: queryKeys.trip(tripId), queryFn: () => api.get<Trip>(`/trips/${tripId}`), enabled: !!tripId })
+}
+
+export function usePlanningAnalysis(tripId: string) {
+  return useQuery({
+    queryKey: queryKeys.analysis(tripId),
+    queryFn: async () => {
+      try {
+        return await api.get<PlanningAnalysis>(`/trips/${tripId}/analysis`)
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null
+        throw error
+      }
+    },
+    enabled: !!tripId,
+    retry: false,
+  })
 }
 
 export function useTravelers(tripId: string) {

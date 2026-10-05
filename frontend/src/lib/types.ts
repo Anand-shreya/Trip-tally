@@ -12,6 +12,7 @@ export interface Traveler {
 export interface Trip {
   id: string
   name: string
+  departure_city: string | null
   destination: string
   start_date: string
   end_date: string
@@ -40,30 +41,89 @@ export interface Place {
   latitude: number
   longitude: number
   recommended_days: string
-  estimated_food: string
-  estimated_transport: string
-  estimated_tickets: string
-  estimated_activity: string
-  estimated_stay: string
-  estimated_cost: string
-  weather_score: string
-  overall_score: string
+  relevance_score: string
   best_for: string[]
   selected: boolean
 }
 
-export interface Analysis {
-  weather: {
-    score: string
-    rating: string
-    summary: string
-    temperature_c: string
-    rain_probability: number
-    humidity: number
-    wind_kph: string
+export interface ResolvedLocation {
+  name: string
+  country_code: string
+  latitude: number
+  longitude: number
+  timezone_offset_seconds: number
+}
+
+export interface CurrentWeather {
+  observed_at: string
+  condition: string
+  description: string
+  temperature_c: string
+  feels_like_c: string
+  minimum_c: string
+  maximum_c: string
+  humidity_percent: number
+  pressure_hpa: number
+  visibility_m: number
+  cloud_percent: number
+  wind_speed_kph: string
+  wind_direction_degrees: number
+  rain_mm_1h: string | null
+  snow_mm_1h: string | null
+  sunrise_at: string
+  sunset_at: string
+}
+
+export interface DailyWeather {
+  requested_date: string
+  source_date: string
+  source: 'forecast' | 'historical'
+  minimum_c: string
+  maximum_c: string
+  representative_c: string
+  condition: string
+  precipitation_probability_percent: number | null
+  precipitation_mm: string | null
+  humidity_percent: number | null
+  maximum_wind_kph: string
+}
+
+export interface WeatherReport {
+  location: ResolvedLocation
+  current: CurrentWeather
+  daily: DailyWeather[]
+  source: 'openweather' | 'openweather+open-meteo'
+  summary: string
+}
+
+export interface EstimateRange {
+  minimum: string
+  typical: string
+  maximum: string
+}
+
+export interface BudgetReport {
+  currency: string
+  traveler_count: number
+  number_of_days: number
+  categories: {
+    flights: EstimateRange
+    accommodation: EstimateRange
+    food: EstimateRange
+    local_transport: EstimateRange
+    tickets: EstimateRange
+    activities: EstimateRange
   }
-  estimated_budget: { minimum: string; typical: string; maximum: string; currency: string }
+  total: EstimateRange
+}
+
+export interface PlanningAnalysis {
+  weather: WeatherReport
+  budget: BudgetReport
   places: Place[]
+  weather_source: string
+  budget_model: string
+  analyzed_at: string
   status: string
 }
 
