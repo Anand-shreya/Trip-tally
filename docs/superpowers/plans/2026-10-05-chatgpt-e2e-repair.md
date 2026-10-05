@@ -78,4 +78,3 @@
 - [ ] Add the minimal fake full-flow fixture and safe frontend message mapping.
 - [ ] Run both focused suites to green.
 - [ ] Run all backend and frontend verification gates, inspect the live UI, and commit the task.
-
