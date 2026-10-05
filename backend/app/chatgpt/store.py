@@ -17,9 +17,7 @@ class CredentialStore:
         with self._lock:
             if not self.path.exists():
                 return None
-            return ChatGPTCredentials.model_validate_json(
-                self.path.read_text(encoding="utf-8")
-            )
+            return ChatGPTCredentials.model_validate_json(self.path.read_text(encoding="utf-8"))
 
     def save(self, credentials: ChatGPTCredentials) -> None:
         with self._lock:
