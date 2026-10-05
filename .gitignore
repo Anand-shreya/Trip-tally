@@ -13,6 +13,7 @@ dist/
 coverage/
 .worktrees/
 .superpowers/
+.tripwise/
 backend/tripwise.db
 frontend/.vite/
 *.tsbuildinfo
