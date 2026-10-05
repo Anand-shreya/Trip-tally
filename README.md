@@ -41,7 +41,7 @@ Prerequisites: Python 3.11 or newer and Node.js 22 or newer.
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 make install
-cp .env.example .env
+cp .env.example backend/.env
 ```
 
 The default configuration uses SQLite and inline background jobs, so PostgreSQL and Redis are not required. Start each process in its own terminal:
@@ -72,7 +72,8 @@ The seeded demo has already completed every step and includes three travelers, s
 
 ## Configuration
 
-Backend settings use the `TRIPWISE_` prefix. Copy `.env.example` to `.env`; never commit real secrets.
+Backend settings use the `TRIPWISE_` prefix. For direct development, copy `.env.example` to
+`backend/.env`; Docker Compose reads the root `.env`. Never commit real secrets.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -80,12 +81,17 @@ Backend settings use the `TRIPWISE_` prefix. Copy `.env.example` to `.env`; neve
 | `TRIPWISE_REDIS_URL` | `redis://localhost:6379/0` | Redis connection used by RQ |
 | `TRIPWISE_QUEUE_MODE` | `inline` | `inline` executes jobs immediately; `redis` queues them |
 | `TRIPWISE_CORS_ORIGINS` | `["http://localhost:5173"]` | JSON array of allowed browser origins |
-| `TRIPWISE_WEATHER_PROVIDER` | `local` | Weather adapter selection |
+| `TRIPWISE_WEATHER_PROVIDER` | `local` | Use `openweather` for live current conditions |
+| `TRIPWISE_OPENWEATHER_API_KEY` | unset | Personal OpenWeather credential |
 | `TRIPWISE_OPENAI_API_KEY` | unset | Optional external AI provider credential |
 | `TRIPWISE_OPENAI_MODEL` | `gpt-5-mini` | Optional AI model name |
 | `VITE_API_URL` | `http://localhost:8000/api/v1` | Browser API root, embedded at frontend build time |
 
 When `TRIPWISE_OPENAI_API_KEY` is absent, TripWise uses its deterministic itinerary and prose provider. The core product remains fully functional.
+
+When `TRIPWISE_WEATHER_PROVIDER=openweather` and a key is configured, analysis uses live current
+conditions from OpenWeather. These conditions are labeled as current observations rather than a
+future forecast. API or payload failures automatically fall back to the deterministic local provider.
 
 When a key is configured, itinerary generation uses the OpenAI Responses API with a Pydantic schema, following the official [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs). Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic local writer.
 

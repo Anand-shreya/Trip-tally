@@ -114,6 +114,96 @@ async def test_analysis_is_deterministic_and_scores_are_bounded(db):
 
 
 @pytest.mark.asyncio
+async def test_openweather_provider_returns_live_current_conditions(monkeypatch):
+    import httpx
+
+    from app.providers import weather as weather_module
+
+    payload = {
+        "coord": {"lon": 77.2167, "lat": 28.6667},
+        "weather": [{"id": 800, "main": "Clear", "description": "clear sky", "icon": "01d"}],
+        "base": "stations",
+        "main": {
+            "temp": 28.4,
+            "feels_like": 29.0,
+            "temp_min": 27.0,
+            "temp_max": 29.0,
+            "pressure": 1012,
+            "humidity": 65,
+        },
+        "visibility": 10000,
+        "wind": {"speed": 5.0, "deg": 280},
+        "clouds": {"all": 0},
+        "dt": 1791158400,
+        "sys": {"country": "IN", "sunrise": 1791139800, "sunset": 1791181800},
+        "timezone": 19800,
+        "id": 1273294,
+        "name": "Delhi",
+        "cod": 200,
+    }
+    observed_request = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal observed_request
+        observed_request = request
+        return httpx.Response(200, json=payload)
+
+    monkeypatch.setattr(
+        weather_module,
+        "get_settings",
+        lambda: type(
+            "WeatherSettings",
+            (),
+            {"weather_provider": "openweather", "openweather_api_key": "test-weather-key"},
+        )(),
+        raising=False,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await weather_module.get_weather("Delhi", date(2027, 2, 14), client=client)
+
+    assert observed_request is not None
+    assert observed_request.url.path == "/data/2.5/weather"
+    assert observed_request.url.params["q"] == "Delhi"
+    assert observed_request.url.params["units"] == "metric"
+    assert observed_request.url.params["appid"] == "test-weather-key"
+    assert result.temperature_c == Decimal("28.4")
+    assert result.humidity == 65
+    assert result.wind_kph == Decimal("18.0")
+    assert result.rain_probability == 0
+    assert result.score == Decimal("8.6")
+    assert result.rating == "EXCELLENT"
+    assert result.summary == (
+        "Current conditions in Delhi: clear sky, 28.4°C, 65% humidity, wind 18.0 km/h."
+    )
+
+
+@pytest.mark.asyncio
+async def test_openweather_failure_falls_back_to_local_weather(monkeypatch):
+    import httpx
+
+    from app.providers import weather as weather_module
+
+    monkeypatch.setattr(
+        weather_module,
+        "get_settings",
+        lambda: type(
+            "WeatherSettings",
+            (),
+            {"weather_provider": "openweather", "openweather_api_key": "test-weather-key"},
+        )(),
+        raising=False,
+    )
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(503, json={"cod": 503, "message": "unavailable"})
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await weather_module.get_weather("Delhi", date(2027, 2, 14), client=client)
+
+    assert result.summary == "Generally pleasant conditions, with a chance of passing rain."
+    assert result.temperature_c == Decimal("16")
+
+
+@pytest.mark.asyncio
 async def test_select_places_rejects_place_from_another_trip(db):
     from app.core.exceptions import ValidationError
     from app.schemas.trip import TripCreate

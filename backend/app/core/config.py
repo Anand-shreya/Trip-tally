@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-5-mini"
     weather_provider: str = "local"
+    openweather_api_key: str | None = None
     queue_mode: str = "inline"
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="TRIPWISE_", extra="ignore")
