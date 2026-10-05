@@ -5,6 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.chatgpt.deps import get_chatgpt_service
+from app.chatgpt.service import OPENAI_API_BASE
 from app.core.config import get_settings
 from app.models import Place, Trip
 from app.schemas.itinerary import ActivityPlan, ItineraryDayPlan, ItineraryPlan
@@ -18,11 +20,45 @@ def _provider(client: Any | None, model: str | None) -> tuple[Any | None, str]:
     settings = get_settings()
     if client is not None:
         return client, model or settings.openai_model
+    chatgpt_credentials = get_chatgpt_service().inference_credentials()
+    if chatgpt_credentials is not None:
+        access_token, selected_model = chatgpt_credentials
+        from openai import OpenAI
+
+        return (
+            OpenAI(api_key=access_token, base_url=OPENAI_API_BASE, max_retries=0),
+            model or selected_model,
+        )
     if not settings.openai_enabled or not settings.openai_api_key:
         return None, model or settings.openai_model
     from openai import OpenAI
 
     return OpenAI(api_key=settings.openai_api_key), model or settings.openai_model
+
+
+def _stream_parsed(
+    client: Any,
+    *,
+    model: str,
+    input_messages: list[dict[str, Any]],
+    text_format: type[BaseModel],
+) -> BaseModel:
+    completed = False
+    with client.responses.stream(
+        model=model,
+        input=input_messages,
+        text_format=text_format,
+        store=False,
+    ) as stream:
+        for event in stream:
+            if event.type == "response.completed":
+                completed = True
+        response = stream.get_final_response()
+    if not completed:
+        raise RuntimeError("OpenAI response stream ended before completion")
+    if response.output_parsed is None:
+        raise RuntimeError("OpenAI returned no structured output")
+    return response.output_parsed
 
 
 def generate_local_itinerary(trip: Trip, places: list[Place]) -> ItineraryPlan:
@@ -105,9 +141,10 @@ def generate_itinerary(
             for place in places
         ],
     }
-    response = provider.responses.parse(
+    response = _stream_parsed(
+        provider,
         model=selected_model,
-        input=[
+        input_messages=[
             {
                 "role": "system",
                 "content": (
@@ -120,9 +157,7 @@ def generate_itinerary(
         ],
         text_format=ItineraryPlan,
     )
-    if response.output_parsed is None:
-        raise RuntimeError("OpenAI returned no structured itinerary")
-    return response.output_parsed
+    return ItineraryPlan.model_validate(response)
 
 
 def _generate_local_summary_text(
@@ -172,9 +207,10 @@ def generate_summary_text(
         "currency": currency,
     }
     try:
-        response = provider.responses.parse(
+        response = _stream_parsed(
+            provider,
             model=selected_model,
-            input=[
+            input_messages=[
                 {
                     "role": "system",
                     "content": (
@@ -193,11 +229,4 @@ def generate_summary_text(
             top_category=top_category,
             currency=currency,
         )
-    if response.output_parsed is None:
-        return _generate_local_summary_text(
-            budget=budget,
-            total_spent=total_spent,
-            top_category=top_category,
-            currency=currency,
-        )
-    return response.output_parsed.summary
+    return SummaryNarrative.model_validate(response).summary

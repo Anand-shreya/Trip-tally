@@ -48,6 +48,38 @@ def itinerary_trip(db, *, selected=True):
     return trip
 
 
+class FakeStream:
+    def __init__(self, *, parsed, events=None):
+        self.parsed = parsed
+        self.events = events if events is not None else [SimpleNamespace(type="response.completed")]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exc_type, _exc, _traceback):
+        return False
+
+    def __iter__(self):
+        return iter(self.events)
+
+    def get_final_response(self):
+        return SimpleNamespace(output_parsed=self.parsed)
+
+
+class FakeResponses:
+    def __init__(self, *, parsed=None, events=None, error=None):
+        self.parsed = parsed
+        self.events = events
+        self.error = error
+        self.calls = []
+
+    def stream(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return FakeStream(parsed=self.parsed, events=self.events)
+
+
 def test_itinerary_requires_a_selected_place(db):
     from app.core.exceptions import ValidationError
     from app.services.itinerary_service import enqueue_itinerary
@@ -139,45 +171,40 @@ def test_summary_uses_backend_totals_categories_and_fallback_prose(db):
     assert len(summary.traveler_balances) == 2
 
 
-def test_openai_itinerary_adapter_uses_responses_structured_output(db):
+def test_chatgpt_stream_sets_store_false_and_returns_only_after_completion(db):
     from app.providers.ai import generate_itinerary, generate_local_itinerary
     from app.schemas.itinerary import ItineraryPlan
 
     trip = itinerary_trip(db)
     expected = generate_local_itinerary(trip, trip.places)
-
-    class Responses:
-        def __init__(self):
-            self.calls = []
-
-        def parse(self, **kwargs):
-            self.calls.append(kwargs)
-            return SimpleNamespace(output_parsed=expected)
-
-    client = SimpleNamespace(responses=Responses())
+    client = SimpleNamespace(responses=FakeResponses(parsed=expected))
     result = generate_itinerary(trip, trip.places, client=client, model="gpt-test")
 
     assert result == expected
     call = client.responses.calls[0]
     assert call["model"] == "gpt-test"
     assert call["text_format"] is ItineraryPlan
+    assert call["store"] is False
     assert "Sri Lanka" in call["input"][1]["content"]
+
+
+def test_stream_requires_completed_event(db):
+    from app.providers.ai import generate_itinerary, generate_local_itinerary
+
+    trip = itinerary_trip(db)
+    expected = generate_local_itinerary(trip, trip.places)
+    client = SimpleNamespace(responses=FakeResponses(parsed=expected, events=[]))
+
+    with pytest.raises(RuntimeError, match="before completion"):
+        generate_itinerary(trip, trip.places, client=client, model="gpt-test")
 
 
 def test_openai_summary_adapter_receives_verified_financial_facts():
     from app.providers.ai import SummaryNarrative, generate_summary_text
 
-    class Responses:
-        def __init__(self):
-            self.calls = []
-
-        def parse(self, **kwargs):
-            self.calls.append(kwargs)
-            return SimpleNamespace(
-                output_parsed=SummaryNarrative(summary="Verified figures, concise story.")
-            )
-
-    client = SimpleNamespace(responses=Responses())
+    client = SimpleNamespace(
+        responses=FakeResponses(parsed=SummaryNarrative(summary="Verified figures, concise story."))
+    )
     result = generate_summary_text(
         budget=Decimal("80000"),
         total_spent=Decimal("76450"),
@@ -196,12 +223,9 @@ def test_openai_summary_adapter_receives_verified_financial_facts():
 def test_openai_summary_adapter_supports_an_unbudgeted_trip():
     from app.providers.ai import SummaryNarrative, generate_summary_text
 
-    class Responses:
-        def parse(self, **kwargs):
-            assert '"remaining": null' in kwargs["input"][1]["content"]
-            return SimpleNamespace(output_parsed=SummaryNarrative(summary="No budget was set."))
-
-    client = SimpleNamespace(responses=Responses())
+    client = SimpleNamespace(
+        responses=FakeResponses(parsed=SummaryNarrative(summary="No budget was set."))
+    )
     result = generate_summary_text(
         budget=None,
         total_spent=Decimal("2500"),
@@ -211,21 +235,18 @@ def test_openai_summary_adapter_supports_an_unbudgeted_trip():
     )
 
     assert result == "No budget was set."
+    assert '"remaining": null' in client.responses.calls[0]["input"][1]["content"]
 
 
 def test_openai_summary_failure_falls_back_to_local_prose():
     from app.providers.ai import generate_summary_text
-
-    class Responses:
-        def parse(self, **_kwargs):
-            raise RuntimeError("provider unavailable")
 
     result = generate_summary_text(
         budget=Decimal("80000"),
         total_spent=Decimal("76450"),
         top_category="ACCOMMODATION",
         currency="INR",
-        client=SimpleNamespace(responses=Responses()),
+        client=SimpleNamespace(responses=FakeResponses(error=RuntimeError("provider unavailable"))),
     )
 
     assert "within" in result.lower()
@@ -250,6 +271,11 @@ def test_stored_openai_key_is_not_used_until_explicitly_enabled(monkeypatch):
             openai_model="gpt-test",
         ),
     )
+    monkeypatch.setattr(
+        ai_module,
+        "get_chatgpt_service",
+        lambda: SimpleNamespace(inference_credentials=lambda: None),
+    )
     monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=ForbiddenOpenAI))
 
     result = ai_module.generate_summary_text(
@@ -267,16 +293,12 @@ def test_stored_openai_key_is_used_only_after_explicit_enable(monkeypatch):
 
     from app.providers import ai as ai_module
 
-    class Responses:
-        def parse(self, **_kwargs):
-            return SimpleNamespace(
-                output_parsed=ai_module.SummaryNarrative(summary="Explicitly enabled response.")
-            )
-
     class EnabledOpenAI:
         def __init__(self, *, api_key):
             assert api_key == "enabled-test-key"
-            self.responses = Responses()
+            self.responses = FakeResponses(
+                parsed=ai_module.SummaryNarrative(summary="Explicitly enabled response.")
+            )
 
     monkeypatch.setattr(
         ai_module,
@@ -286,6 +308,11 @@ def test_stored_openai_key_is_used_only_after_explicit_enable(monkeypatch):
             openai_api_key="enabled-test-key",
             openai_model="gpt-test",
         ),
+    )
+    monkeypatch.setattr(
+        ai_module,
+        "get_chatgpt_service",
+        lambda: SimpleNamespace(inference_credentials=lambda: None),
     )
     monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=EnabledOpenAI))
 
@@ -297,6 +324,92 @@ def test_stored_openai_key_is_used_only_after_explicit_enable(monkeypatch):
     )
 
     assert result == "Explicitly enabled response."
+
+
+def test_connected_chatgpt_precedes_enabled_api_key(monkeypatch):
+    import sys
+
+    from app.providers import ai as ai_module
+
+    constructed = []
+
+    class OAuthOpenAI:
+        def __init__(self, **kwargs):
+            constructed.append(kwargs)
+            self.responses = FakeResponses(
+                parsed=ai_module.SummaryNarrative(summary="Generated with ChatGPT plan.")
+            )
+
+    monkeypatch.setattr(
+        ai_module,
+        "get_chatgpt_service",
+        lambda: SimpleNamespace(inference_credentials=lambda: ("oauth-access-token", "gpt-plan")),
+    )
+    monkeypatch.setattr(
+        ai_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            openai_enabled=True,
+            openai_api_key="paid-api-key",
+            openai_model="gpt-api",
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=OAuthOpenAI))
+
+    result = ai_module.generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+    )
+
+    assert result == "Generated with ChatGPT plan."
+    assert constructed == [
+        {
+            "api_key": "oauth-access-token",
+            "base_url": "https://api.openai.com/v1",
+            "max_retries": 0,
+        }
+    ]
+
+
+def test_chatgpt_plan_failure_never_falls_through_to_paid_api_key(monkeypatch):
+    import sys
+
+    from app.providers import ai as ai_module
+
+    constructed_with = []
+
+    class FailingOpenAI:
+        def __init__(self, **kwargs):
+            constructed_with.append(kwargs["api_key"])
+            self.responses = FakeResponses(error=RuntimeError("plan unavailable"))
+
+    monkeypatch.setattr(
+        ai_module,
+        "get_chatgpt_service",
+        lambda: SimpleNamespace(inference_credentials=lambda: ("oauth-access-token", "gpt-plan")),
+    )
+    monkeypatch.setattr(
+        ai_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            openai_enabled=True,
+            openai_api_key="paid-api-key",
+            openai_model="gpt-api",
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FailingOpenAI))
+
+    result = ai_module.generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+    )
+
+    assert "3550.00 INR remaining" in result
+    assert constructed_with == ["oauth-access-token"]
 
 
 def test_rq_handler_raises_retryable_job_failures(monkeypatch):
