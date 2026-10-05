@@ -200,19 +200,24 @@ class ChatGPTService:
         )
         response.raise_for_status()
         payload = response.json()
-        rows = payload.get("data") if isinstance(payload, dict) else None
+        rows = payload.get("models") if isinstance(payload, dict) else None
         if not isinstance(rows, list):
-            raise ValueError("OpenAI models response did not contain a data list")
-        return sorted(
-            {
-                row["id"]
-                for row in rows
-                if isinstance(row, dict)
-                and row.get("visibility") == "list"
-                and isinstance(row.get("id"), str)
-                and row["id"]
-            }
-        )
+            raise ValueError("OpenAI models response did not contain a models list")
+        models: list[str] = []
+        seen: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            slug = row.get("slug")
+            if (
+                row.get("visibility") == "list"
+                and isinstance(slug, str)
+                and slug
+                and slug not in seen
+            ):
+                models.append(slug)
+                seen.add(slug)
+        return models
 
     def status(self) -> ChatGPTStatus:
         credentials = self.store.load()

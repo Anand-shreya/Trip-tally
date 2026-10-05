@@ -54,10 +54,27 @@ def successful_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={
-                "data": [
-                    {"id": "gpt-hidden", "visibility": "hidden"},
-                    {"id": "gpt-listable", "visibility": "list"},
-                    {"id": "gpt-listable", "visibility": "list"},
+                "models": [
+                    {
+                        "slug": "gpt-hidden",
+                        "display_name": "Hidden",
+                        "visibility": "hidden",
+                    },
+                    {
+                        "slug": "gpt-second",
+                        "display_name": "Second",
+                        "visibility": "list",
+                    },
+                    {
+                        "slug": "gpt-first",
+                        "display_name": "First",
+                        "visibility": "list",
+                    },
+                    {
+                        "slug": "gpt-second",
+                        "display_name": "Second",
+                        "visibility": "list",
+                    },
                 ]
             },
         )
@@ -105,9 +122,9 @@ def test_callback_filters_models_and_marks_direct_scope(tmp_path):
         callback_client_id="issued-client",
     )
 
-    assert result.models == ["gpt-listable"]
+    assert result.models == ["gpt-second", "gpt-first"]
     assert result.plan_enabled is True
-    assert result.selected_model == "gpt-listable"
+    assert result.selected_model == "gpt-second"
     assert result.email == "traveler@example.com"
 
 
@@ -171,7 +188,15 @@ def test_direct_scope_without_listable_models_has_a_distinct_state(tmp_path):
         if request.url.path == "/v1/models":
             return httpx.Response(
                 200,
-                json={"data": [{"id": "gpt-hidden", "visibility": "hidden"}]},
+                json={
+                    "models": [
+                        {
+                            "slug": "gpt-hidden",
+                            "display_name": "Hidden",
+                            "visibility": "hidden",
+                        }
+                    ]
+                },
             )
         raise AssertionError(f"Unexpected request: {request.method} {request.url}")
 
