@@ -371,10 +371,22 @@ def test_model_discovery_failure_retains_validated_connection(tmp_path):
     assert stored.models == []
 
 
-def test_token_exchange_failure_has_a_safe_stage(tmp_path):
+@pytest.mark.parametrize(
+    ("response", "expected_reason"),
+    [
+        (httpx.Response(400, json={"error": "invalid_grant"}), "token_exchange_invalid_grant"),
+        (
+            httpx.Response(401, json={"error": "invalid_client"}),
+            "token_exchange_invalid_client",
+        ),
+        (httpx.Response(503, text="private-upstream-detail"), "token_exchange_unavailable"),
+        (httpx.Response(400, json={"error": "unsupported_error"}), "token_exchange_failed"),
+    ],
+)
+def test_token_exchange_failure_has_a_safe_stage(tmp_path, response, expected_reason):
     service = make_service(
         tmp_path,
-        lambda _request: httpx.Response(400, json={"error": "invalid_grant"}),
+        lambda _request: response,
     )
     start = service.start_authorization()
 
@@ -385,7 +397,24 @@ def test_token_exchange_failure_has_a_safe_stage(tmp_path):
             callback_client_id="issued-client",
         )
 
-    assert getattr(error.value, "reason", None) == "token_exchange_failed"
+    assert getattr(error.value, "reason", None) == expected_reason
+
+
+def test_token_exchange_network_failure_is_safely_classified(tmp_path):
+    def unavailable(request: httpx.Request):
+        raise httpx.ConnectError("private-network-detail", request=request)
+
+    service = make_service(tmp_path, unavailable)
+    start = service.start_authorization()
+
+    with pytest.raises(ValueError) as error:
+        service.complete_authorization(
+            code="authorization-code",
+            state=start.state,
+            callback_client_id="issued-client",
+        )
+
+    assert getattr(error.value, "reason", None) == "token_exchange_unavailable"
 
 
 def test_failed_initial_exchange_retains_issued_client_for_retry(tmp_path):

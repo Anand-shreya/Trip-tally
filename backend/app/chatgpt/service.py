@@ -37,6 +37,9 @@ TokenValidator = Callable[..., dict[str, Any]]
 AuthorizationFailureReason = Literal[
     "state_mismatch",
     "registration_incomplete",
+    "token_exchange_invalid_grant",
+    "token_exchange_invalid_client",
+    "token_exchange_unavailable",
     "token_exchange_failed",
     "identity_validation_failed",
     "model_discovery_failed",
@@ -98,6 +101,28 @@ def _expiry_from(payload: dict[str, Any]) -> datetime:
     if not isinstance(expires_in, (int, float)) or expires_in <= 0:
         raise ValueError("OAuth token response contained invalid expires_in")
     return datetime.now(UTC) + timedelta(seconds=float(expires_in))
+
+
+def _token_exchange_failure_reason(exc: Exception) -> AuthorizationFailureReason:
+    """Classify an exchange failure without propagating upstream response details."""
+    if isinstance(exc, httpx.RequestError):
+        return "token_exchange_unavailable"
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return "token_exchange_failed"
+    if exc.response.status_code == 429 or exc.response.status_code >= 500:
+        return "token_exchange_unavailable"
+    try:
+        payload = exc.response.json()
+    except ValueError:
+        return "token_exchange_failed"
+    if not isinstance(payload, dict):
+        return "token_exchange_failed"
+    error = payload.get("error")
+    if error == "invalid_grant":
+        return "token_exchange_invalid_grant"
+    if error == "invalid_client":
+        return "token_exchange_invalid_client"
+    return "token_exchange_failed"
 
 
 class ChatGPTService:
@@ -187,7 +212,7 @@ class ChatGPTService:
             scopes = _scopes_from(payload)
             expires_at = _expiry_from(payload)
         except Exception as exc:
-            raise ChatGPTAuthorizationError("token_exchange_failed") from exc
+            raise ChatGPTAuthorizationError(_token_exchange_failure_reason(exc)) from exc
 
         try:
             claims = self._token_validator(

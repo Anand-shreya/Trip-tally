@@ -195,7 +195,7 @@ def test_callback_reports_token_exchange_stage_without_upstream_details(tmp_path
     )
 
     assert response.headers["location"] == (
-        "http://localhost:5173/?chatgpt=error&reason=token_exchange_failed"
+        "http://localhost:5173/?chatgpt=error&reason=token_exchange_invalid_grant"
     )
     assert "private-upstream-detail" not in response.headers["location"]
 

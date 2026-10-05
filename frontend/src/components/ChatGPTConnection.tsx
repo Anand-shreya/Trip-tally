@@ -47,8 +47,17 @@ function callbackErrorMessage(reason: string | null) {
   if (reason === 'registration_incomplete') {
     return 'ChatGPT did not finish registering TripWise. Start the connection again.'
   }
+  if (reason === 'token_exchange_invalid_grant') {
+    return 'That ChatGPT sign-in code was already used or expired. Start again.'
+  }
+  if (reason === 'token_exchange_invalid_client') {
+    return 'ChatGPT rejected this TripWise registration. Start the connection again.'
+  }
+  if (reason === 'token_exchange_unavailable') {
+    return 'ChatGPT sign-in is temporarily unavailable. Try again in a moment.'
+  }
   if (reason === 'token_exchange_failed') {
-    return 'The ChatGPT sign-in code expired or could not be exchanged. Start again.'
+    return 'TripWise could not complete the ChatGPT token exchange. Start again.'
   }
   if (reason === 'identity_validation_failed') {
     return 'TripWise could not verify the ChatGPT account. Start the connection again.'

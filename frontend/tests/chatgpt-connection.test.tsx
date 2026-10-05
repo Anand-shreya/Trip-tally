@@ -180,8 +180,20 @@ describe('ChatGPT connection control', () => {
       'ChatGPT did not finish registering TripWise. Start the connection again.',
     ],
     [
+      'token_exchange_invalid_grant',
+      'That ChatGPT sign-in code was already used or expired. Start again.',
+    ],
+    [
+      'token_exchange_invalid_client',
+      'ChatGPT rejected this TripWise registration. Start the connection again.',
+    ],
+    [
+      'token_exchange_unavailable',
+      'ChatGPT sign-in is temporarily unavailable. Try again in a moment.',
+    ],
+    [
       'token_exchange_failed',
-      'The ChatGPT sign-in code expired or could not be exchanged. Start again.',
+      'TripWise could not complete the ChatGPT token exchange. Start again.',
     ],
     [
       'identity_validation_failed',
