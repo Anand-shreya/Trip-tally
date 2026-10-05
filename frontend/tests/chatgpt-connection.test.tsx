@@ -174,6 +174,32 @@ describe('ChatGPT connection control', () => {
     expect(window.location.search).toBe('')
   })
 
+  it.each([
+    [
+      'registration_incomplete',
+      'ChatGPT did not finish registering TripWise. Start the connection again.',
+    ],
+    [
+      'token_exchange_failed',
+      'The ChatGPT sign-in code expired or could not be exchanged. Start again.',
+    ],
+    [
+      'identity_validation_failed',
+      'TripWise could not verify the ChatGPT account. Start the connection again.',
+    ],
+    [
+      'model_discovery_failed',
+      'ChatGPT is connected, but its model list could not be loaded. Try connecting again.',
+    ],
+  ])('explains the safe %s callback stage', async (reason, message) => {
+    renderConnection(disconnectedStatus, {
+      path: `/?chatgpt=error&reason=${reason}`,
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(window.location.search).toBe('')
+  })
+
   it('ignores credential fields from a malformed status response', async () => {
     renderConnection(connectedStatus, {
       extras: {

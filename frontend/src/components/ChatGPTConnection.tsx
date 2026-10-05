@@ -44,6 +44,18 @@ function callbackErrorMessage(reason: string | null) {
   if (reason === 'state_mismatch') {
     return 'The ChatGPT sign-in expired. Start again to connect.'
   }
+  if (reason === 'registration_incomplete') {
+    return 'ChatGPT did not finish registering TripWise. Start the connection again.'
+  }
+  if (reason === 'token_exchange_failed') {
+    return 'The ChatGPT sign-in code expired or could not be exchanged. Start again.'
+  }
+  if (reason === 'identity_validation_failed') {
+    return 'TripWise could not verify the ChatGPT account. Start the connection again.'
+  }
+  if (reason === 'model_discovery_failed') {
+    return 'ChatGPT is connected, but its model list could not be loaded. Try connecting again.'
+  }
   return 'ChatGPT could not be connected. Try again.'
 }
 

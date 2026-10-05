@@ -227,9 +227,7 @@ class ChatGPTService:
                 else next(iter(models), None)
             )
             self.store.save(
-                credentials.model_copy(
-                    update={"models": models, "selected_model": selected_model}
-                )
+                credentials.model_copy(update={"models": models, "selected_model": selected_model})
             )
         return self.status()
 
