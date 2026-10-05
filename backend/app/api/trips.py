@@ -6,11 +6,13 @@ from app.schemas.trip import TravelerCreate, TravelerRead, TripCreate, TripCreat
 from app.services.planning_service import analyze_trip
 from app.services.trip_service import (
     add_traveler,
+    archive_trip,
     create_trip,
     delete_traveler,
     delete_trip,
     list_travelers,
     list_trips,
+    restore_trip,
 )
 
 router = APIRouter(prefix="/trips", tags=["trips"])
@@ -36,6 +38,16 @@ def get_trip_route(trip: OwnedTrip):
 def delete_trip_route(trip: OwnedTrip, db: DbSession) -> Response:
     delete_trip(db, trip)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{trip_id}/archive", response_model=TripRead)
+def archive_trip_route(trip: OwnedTrip, db: DbSession):
+    return archive_trip(db, trip)
+
+
+@router.delete("/{trip_id}/archive", response_model=TripRead)
+def restore_trip_route(trip: OwnedTrip, db: DbSession):
+    return restore_trip(db, trip)
 
 
 @router.post(

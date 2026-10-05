@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.enums import TripStatus
 from app.core.exceptions import ConflictError, NotFoundError
-from app.models import Traveler, Trip
+from app.models import Traveler, Trip, TripArchive
 from app.schemas.trip import TravelerCreate, TripCreate
 
 
@@ -32,7 +32,7 @@ def list_trips(db: Session, user_id: str) -> list[Trip]:
     statement = (
         select(Trip)
         .where(Trip.user_id == user_id)
-        .options(selectinload(Trip.travelers))
+        .options(selectinload(Trip.travelers), selectinload(Trip.archive_record))
         .order_by(Trip.start_date.desc())
     )
     return list(db.scalars(statement).unique())
@@ -42,7 +42,11 @@ def get_trip(db: Session, trip_id: str, user_id: str) -> Trip:
     statement = (
         select(Trip)
         .where(Trip.id == trip_id, Trip.user_id == user_id)
-        .options(selectinload(Trip.travelers), selectinload(Trip.places))
+        .options(
+            selectinload(Trip.travelers),
+            selectinload(Trip.places),
+            selectinload(Trip.archive_record),
+        )
     )
     trip = db.scalar(statement)
     if trip is None:
@@ -53,6 +57,22 @@ def get_trip(db: Session, trip_id: str, user_id: str) -> Trip:
 def delete_trip(db: Session, trip: Trip) -> None:
     db.delete(trip)
     db.commit()
+
+
+def archive_trip(db: Session, trip: Trip) -> Trip:
+    if trip.archive_record is None:
+        trip.archive_record = TripArchive()
+        db.commit()
+        db.refresh(trip)
+    return trip
+
+
+def restore_trip(db: Session, trip: Trip) -> Trip:
+    if trip.archive_record is not None:
+        trip.archive_record = None
+        db.commit()
+        db.refresh(trip)
+    return trip
 
 
 def add_traveler(db: Session, trip: Trip, payload: TravelerCreate) -> Traveler:

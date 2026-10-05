@@ -64,6 +64,8 @@ class TripRead(BaseModel):
     budget: Decimal | None
     travel_style: TravelStyle
     status: TripStatus
+    is_archived: bool
+    archived_at: datetime | None
     weather_score: Decimal | None
     weather_rating: str | None
     weather_summary: str | None

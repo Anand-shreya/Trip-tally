@@ -3,7 +3,7 @@ from app.models.itinerary import ItineraryActivity, ItineraryDay
 from app.models.job import Job
 from app.models.place import Place
 from app.models.traveler import Traveler
-from app.models.trip import Trip
+from app.models.trip import Trip, TripArchive
 from app.models.user import User
 
 __all__ = [
@@ -15,5 +15,6 @@ __all__ = [
     "Place",
     "Traveler",
     "Trip",
+    "TripArchive",
     "User",
 ]

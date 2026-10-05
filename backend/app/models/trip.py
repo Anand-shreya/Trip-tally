@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, Text, Uuid
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
-from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin, utc_now
 
 
 class Trip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -42,6 +42,29 @@ class Trip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="trip", cascade="all, delete-orphan"
     )
     jobs: Mapped[list["Job"]] = relationship(back_populates="trip", cascade="all, delete-orphan")
+    archive_record: Mapped["TripArchive | None"] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", single_parent=True, uselist=False
+    )
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archive_record is not None
+
+    @property
+    def archived_at(self) -> datetime | None:
+        return self.archive_record.archived_at if self.archive_record else None
+
+
+class TripArchive(Base):
+    __tablename__ = "trip_archives"
+
+    trip_id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), ForeignKey("trips.id", ondelete="CASCADE"), primary_key=True
+    )
+    archived_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    trip: Mapped[Trip] = relationship(back_populates="archive_record")
 
 
 from app.models.expense import Expense  # noqa: E402, F401

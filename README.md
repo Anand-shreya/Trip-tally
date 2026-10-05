@@ -149,6 +149,7 @@ All application routes are rooted at `/api/v1`.
 | `GET` | `/health` | API health |
 | `GET`, `POST` | `/trips` | List or create trips |
 | `GET`, `DELETE` | `/trips/{trip_id}` | Read or delete a trip |
+| `POST`, `DELETE` | `/trips/{trip_id}/archive` | Archive or restore a trip |
 | `GET`, `POST` | `/trips/{trip_id}/travelers` | List or add travelers |
 | `DELETE` | `/trips/{trip_id}/travelers/{traveler_id}` | Remove an unused traveler |
 | `POST` | `/trips/{trip_id}/analyze` | Run weather, budget, and place analysis |

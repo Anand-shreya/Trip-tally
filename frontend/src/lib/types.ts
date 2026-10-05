@@ -20,6 +20,8 @@ export interface Trip {
   budget: string | null
   travel_style: TravelStyle
   status: TripStatus
+  is_archived: boolean
+  archived_at: string | null
   weather_score: string | null
   weather_rating: string | null
   weather_summary: string | null
