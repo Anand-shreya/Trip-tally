@@ -185,7 +185,9 @@ def test_chatgpt_stream_sets_store_false_and_returns_only_after_completion(db):
     assert call["model"] == "gpt-test"
     assert call["text_format"] is ItineraryPlan
     assert call["store"] is False
-    assert "Sri Lanka" in call["input"][1]["content"]
+    assert "Create a practical day-by-day travel itinerary" in call["instructions"]
+    assert [message["role"] for message in call["input"]] == ["user"]
+    assert "Sri Lanka" in call["input"][0]["content"]
 
 
 def test_stream_requires_completed_event(db):
@@ -217,7 +219,9 @@ def test_openai_summary_adapter_receives_verified_financial_facts():
     assert result == "Verified figures, concise story."
     call = client.responses.calls[0]
     assert call["text_format"] is SummaryNarrative
-    assert "76450" in call["input"][1]["content"]
+    assert "Write a concise, friendly trip-spending summary" in call["instructions"]
+    assert [message["role"] for message in call["input"]] == ["user"]
+    assert "76450" in call["input"][0]["content"]
 
 
 def test_openai_summary_adapter_supports_an_unbudgeted_trip():
@@ -235,7 +239,7 @@ def test_openai_summary_adapter_supports_an_unbudgeted_trip():
     )
 
     assert result == "No budget was set."
-    assert '"remaining": null' in client.responses.calls[0]["input"][1]["content"]
+    assert '"remaining": null' in client.responses.calls[0]["input"][0]["content"]
 
 
 def test_openai_summary_failure_falls_back_to_local_prose():

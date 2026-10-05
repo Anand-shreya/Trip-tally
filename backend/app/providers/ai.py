@@ -44,12 +44,14 @@ def _stream_parsed(
     client: Any,
     *,
     model: str,
+    instructions: str,
     input_messages: list[dict[str, Any]],
     text_format: type[BaseModel],
 ) -> BaseModel:
     completed = False
     with client.responses.stream(
         model=model,
+        instructions=instructions,
         input=input_messages,
         text_format=text_format,
         store=False,
@@ -148,15 +150,12 @@ def generate_itinerary(
     response = _stream_parsed(
         provider,
         model=selected_model,
+        instructions=(
+            "Create a practical day-by-day travel itinerary from verified facts. "
+            "Return exactly the requested days and dates, keep start times before end "
+            "times, and set activity estimated_cost to 0 because the backend owns money."
+        ),
         input_messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Create a practical day-by-day travel itinerary from verified facts. "
-                    "Return exactly the requested days and dates, keep start times before end "
-                    "times, and set activity estimated_cost to 0 because the backend owns money."
-                ),
-            },
             {"role": "user", "content": json.dumps(facts, default=str)},
         ],
         text_format=ItineraryPlan,
@@ -222,14 +221,11 @@ def generate_summary_text(
         response = _stream_parsed(
             provider,
             model=selected_model,
+            instructions=(
+                "Write a concise, friendly trip-spending summary using only the verified "
+                "facts supplied. Do not calculate or change any number."
+            ),
             input_messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Write a concise, friendly trip-spending summary using only the verified "
-                        "facts supplied. Do not calculate or change any number."
-                    ),
-                },
                 {"role": "user", "content": json.dumps(facts, default=str)},
             ],
             text_format=SummaryNarrative,
