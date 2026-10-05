@@ -203,6 +203,109 @@ def test_create_trip_derives_dates_currency_and_profile(db):
     assert trip.planning_profile.weather_report is None
 
 
+def test_create_trip_persists_canonical_departure_and_destination_locations(db):
+    from app.schemas.location import LocationSelection
+    from app.schemas.trip import TripCreate
+    from app.services.trip_service import create_trip
+
+    user = make_user(db, "structured-locations@example.test")
+    trip = create_trip(
+        db,
+        user.id,
+        TripCreate(
+            name="Island loop",
+            departure_city="New Delhi, Delhi, India",
+            destination="Sri Lanka",
+            departure_location=LocationSelection(
+                label="New Delhi, Delhi, India",
+                country_code="IN",
+                latitude=28.6139,
+                longitude=77.2090,
+                location_type="city",
+            ),
+            destination_location=LocationSelection(
+                label="Sri Lanka",
+                country_code="LK",
+                latitude=7.8774,
+                longitude=80.7011,
+                location_type="country",
+            ),
+            start_date=date(2027, 4, 4),
+            number_of_days=5,
+        ),
+    )
+
+    assert trip.departure_city == "New Delhi, Delhi, India"
+    assert trip.destination == "Sri Lanka"
+    assert trip.departure_location.country_code == "IN"
+    assert trip.departure_location.latitude == 28.6139
+    assert trip.destination_location.country_code == "LK"
+    assert trip.destination_location.longitude == 80.7011
+
+
+@pytest.mark.asyncio
+async def test_analysis_uses_saved_destination_coordinates_and_canonical_ai_labels(db):
+    from app.schemas.location import LocationSelection
+    from app.schemas.planning import AnalyzeTripRequest
+    from app.schemas.trip import TripCreate
+    from app.services.planning_service import analyze_trip
+    from app.services.trip_service import create_trip
+
+    user = make_user(db, "coordinate-weather@example.test")
+    trip = create_trip(
+        db,
+        user.id,
+        TripCreate(
+            name="Island loop",
+            departure_city="New Delhi, Delhi, India",
+            destination="Sri Lanka",
+            departure_location=LocationSelection(
+                label="New Delhi, Delhi, India",
+                country_code="IN",
+                latitude=28.6139,
+                longitude=77.2090,
+                location_type="city",
+            ),
+            destination_location=LocationSelection(
+                label="Sri Lanka",
+                country_code="LK",
+                latitude=7.8774,
+                longitude=80.7011,
+                location_type="country",
+            ),
+            start_date=date(2027, 4, 4),
+            number_of_days=5,
+        ),
+    )
+    weather_args: tuple | None = None
+
+    async def coordinate_weather(*args):
+        nonlocal weather_args
+        weather_args = args
+        return weather_report()
+
+    provider = FakePlanningProvider()
+    await analyze_trip(
+        db,
+        trip,
+        AnalyzeTripRequest(),
+        weather_fetcher=coordinate_weather,
+        planning_provider=provider,
+    )
+
+    assert weather_args == (
+        "Sri Lanka",
+        date(2027, 4, 4),
+        date(2027, 4, 8),
+        7.8774,
+        80.7011,
+        "LK",
+    )
+    assert provider.budget_facts.departure_city == "New Delhi, Delhi, India"
+    assert provider.budget_facts.destination == "Sri Lanka"
+    assert provider.place_facts.destination == "Sri Lanka"
+
+
 def test_legacy_trip_without_profile_reads_null_departure_city(db):
     trip = create_test_trip(db, with_profile=False)
 

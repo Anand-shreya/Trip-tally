@@ -5,15 +5,21 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.enums import TripStatus
 from app.core.exceptions import ConflictError, NotFoundError
-from app.models import Traveler, Trip, TripArchive, TripPlanningProfile
+from app.models import Traveler, Trip, TripArchive, TripLocation, TripPlanningProfile
 from app.schemas.trip import TravelerCreate, TripCreate
 
 
 def create_trip(db: Session, user_id: str, payload: TripCreate) -> Trip:
+    departure_city = (
+        payload.departure_location.label if payload.departure_location else payload.departure_city
+    )
+    destination = (
+        payload.destination_location.label if payload.destination_location else payload.destination
+    )
     trip = Trip(
         user_id=user_id,
         name=payload.name,
-        destination=payload.destination,
+        destination=destination,
         start_date=payload.start_date,
         end_date=payload.start_date + timedelta(days=payload.number_of_days - 1),
         number_of_days=payload.number_of_days,
@@ -22,7 +28,13 @@ def create_trip(db: Session, user_id: str, payload: TripCreate) -> Trip:
         travel_style=payload.travel_style.value,
         status=TripStatus.PLANNING.value,
     )
-    trip.planning_profile = TripPlanningProfile(departure_city=payload.departure_city)
+    trip.planning_profile = TripPlanningProfile(departure_city=departure_city)
+    for kind, selection in (
+        ("departure", payload.departure_location),
+        ("destination", payload.destination_location),
+    ):
+        if selection is not None:
+            trip.locations.append(TripLocation(kind=kind, **selection.model_dump()))
     db.add(trip)
     db.commit()
     db.refresh(trip)
@@ -37,6 +49,7 @@ def list_trips(db: Session, user_id: str) -> list[Trip]:
             selectinload(Trip.travelers),
             selectinload(Trip.archive_record),
             selectinload(Trip.planning_profile),
+            selectinload(Trip.locations),
         )
         .order_by(Trip.start_date.desc())
     )
@@ -52,6 +65,7 @@ def get_trip(db: Session, trip_id: str, user_id: str) -> Trip:
             selectinload(Trip.places),
             selectinload(Trip.archive_record),
             selectinload(Trip.planning_profile),
+            selectinload(Trip.locations),
         )
     )
     trip = db.scalar(statement)

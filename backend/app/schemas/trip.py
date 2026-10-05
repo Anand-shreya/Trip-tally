@@ -4,12 +4,15 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.core.enums import TravelStyle, TripStatus
+from app.schemas.location import LocationSelection
 
 
 class TripCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     departure_city: str = Field(min_length=1, max_length=200)
     destination: str = Field(min_length=1, max_length=200)
+    departure_location: LocationSelection | None = None
+    destination_location: LocationSelection | None = None
     start_date: date
     number_of_days: int = Field(gt=0, le=60)
     budget: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
@@ -58,7 +61,9 @@ class TripRead(BaseModel):
     id: str
     name: str
     departure_city: str | None
+    departure_location: LocationSelection | None
     destination: str
+    destination_location: LocationSelection | None
     start_date: date
     end_date: date
     number_of_days: int

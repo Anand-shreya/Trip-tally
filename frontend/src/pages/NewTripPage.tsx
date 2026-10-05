@@ -5,14 +5,14 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
+import { LocationCombobox } from '../components/LocationCombobox'
 import { Button } from '../components/ui'
 import { api } from '../lib/api'
 import { queryKeys } from '../lib/queryKeys'
+import type { LocationSelection, LocationSuggestion } from '../lib/types'
 
 const schema = z.object({
   name: z.string().trim().min(1),
-  departure_city: z.string().trim().min(1),
-  destination: z.string().trim().min(1),
   start_date: z.string().min(1),
   number_of_days: z.coerce.number().int().min(1).max(60),
   budget: z.string(),
@@ -22,21 +22,44 @@ const schema = z.object({
 })
 type FormValues = z.infer<typeof schema>
 
+function selectionPayload(location: LocationSuggestion): LocationSelection {
+  return {
+    label: location.label,
+    country_code: location.country_code,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    location_type: location.location_type,
+  }
+}
+
 export function NewTripPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState('')
+  const [departureLocation, setDepartureLocation] = useState<LocationSuggestion | null>(null)
+  const [destinationLocation, setDestinationLocation] = useState<LocationSuggestion | null>(null)
+  const [showLocationErrors, setShowLocationErrors] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     defaultValues: { number_of_days: 5, currency: 'INR', travel_style: 'COMFORTABLE', budget: '', travelers: '' },
   })
   const create = useMutation({
-    mutationFn: async (values: FormValues) => {
+    mutationFn: async ({
+      values,
+      departure,
+      destination,
+    }: {
+      values: FormValues
+      departure: LocationSuggestion
+      destination: LocationSuggestion
+    }) => {
       const parsed = schema.parse(values)
       const names = parsed.travelers.split(/[,\n]/).map((name) => name.trim()).filter(Boolean)
       const trip = await api.post<{ trip_id: string; status: string }>('/trips', {
         name: parsed.name,
-        departure_city: parsed.departure_city,
-        destination: parsed.destination,
+        departure_city: departure.label,
+        destination: destination.label,
+        departure_location: selectionPayload(departure),
+        destination_location: selectionPayload(destination),
         start_date: parsed.start_date,
         number_of_days: parsed.number_of_days,
         budget: parsed.budget ? Number(parsed.budget) : null,
@@ -56,7 +79,17 @@ export function NewTripPage() {
     setFormError('')
     const parsed = schema.safeParse(values)
     if (!parsed.success) { setFormError('Complete the required trip details.'); return }
-    create.mutate(parsed.data)
+    if (!departureLocation || !destinationLocation) {
+      setShowLocationErrors(true)
+      setFormError('Select a departure city and destination from the suggestions.')
+      return
+    }
+    setShowLocationErrors(false)
+    create.mutate({
+      values: parsed.data,
+      departure: departureLocation,
+      destination: destinationLocation,
+    })
   })
   return (
     <main className="new-trip-page">
@@ -69,8 +102,28 @@ export function NewTripPage() {
         <form className="trip-form" onSubmit={submit} noValidate>
           <div className="form-section"><span className="form-marker"><MapPin /></span><div><h2>Where</h2><p>Name the route and its main destination.</p></div></div>
           <label>Trip name<input {...register('name', { required: true })} placeholder="Sri Lanka loop" />{errors.name && <small>Trip name is required.</small>}</label>
-          <label>Departure city<input {...register('departure_city', { required: true })} placeholder="Delhi" />{errors.departure_city && <small>Departure city is required.</small>}</label>
-          <label>Destination<input {...register('destination', { required: true })} placeholder="Sri Lanka" />{errors.destination && <small>Destination is required.</small>}</label>
+          <LocationCombobox
+            label="Departure city"
+            kind="departure"
+            placeholder="Start typing a city"
+            value={departureLocation}
+            onChange={(location) => {
+              setDepartureLocation(location)
+              if (location) setShowLocationErrors(false)
+            }}
+            error={showLocationErrors && !departureLocation ? 'Select a departure city.' : undefined}
+          />
+          <LocationCombobox
+            label="Destination"
+            kind="destination"
+            placeholder="Start typing a city or country"
+            value={destinationLocation}
+            onChange={(location) => {
+              setDestinationLocation(location)
+              if (location) setShowLocationErrors(false)
+            }}
+            error={showLocationErrors && !destinationLocation ? 'Select a destination.' : undefined}
+          />
           <div className="form-section"><span className="form-marker"><CalendarDays /></span><div><h2>When & how</h2><p>Set the dates, comfort, and guardrails.</p></div></div>
           <div className="form-row"><label>Start date<input type="date" {...register('start_date', { required: true })} /></label><label>Days<input type="number" min="1" max="60" {...register('number_of_days', { valueAsNumber: true })} /></label></div>
           <div className="form-row"><label>Budget<input type="number" min="0" step="0.01" {...register('budget')} placeholder="80000" /></label><label>Currency<input maxLength={3} {...register('currency')} /></label></div>

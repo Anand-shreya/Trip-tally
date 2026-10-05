@@ -1,6 +1,21 @@
 export type TravelStyle = 'BUDGET' | 'COMFORTABLE' | 'PREMIUM'
 export type TripStatus = 'DRAFT' | 'PLANNING' | 'READY' | 'ACTIVE' | 'COMPLETED'
 export type ExpenseCategory = 'FOOD' | 'ACCOMMODATION' | 'TRANSPORT' | 'ACTIVITIES' | 'TICKETS' | 'SHOPPING' | 'OTHER'
+export type LocationKind = 'departure' | 'destination'
+export type LocationType = 'city' | 'town' | 'region' | 'state' | 'island' | 'country'
+
+export interface LocationSelection {
+  label: string
+  country_code: string
+  latitude: number
+  longitude: number
+  location_type: LocationType
+}
+
+export interface LocationSuggestion extends LocationSelection {
+  id: string
+  name: string
+}
 
 export interface Traveler {
   id: string
@@ -13,7 +28,9 @@ export interface Trip {
   id: string
   name: string
   departure_city: string | null
+  departure_location?: LocationSelection | null
   destination: string
+  destination_location?: LocationSelection | null
   start_date: string
   end_date: string
   number_of_days: number

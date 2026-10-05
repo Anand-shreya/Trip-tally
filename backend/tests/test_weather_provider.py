@@ -197,6 +197,49 @@ async def test_weather_report_combines_complete_current_forecast_and_historical_
 
 
 @pytest.mark.asyncio
+async def test_saved_coordinates_skip_geocoding_and_keep_the_canonical_destination(monkeypatch):
+    configure(monkeypatch)
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        assert request.url.path != "/geo/1.0/direct"
+        if request.url.path == "/data/2.5/weather":
+            assert request.url.params["lat"] == "7.8774"
+            assert request.url.params["lon"] == "80.7011"
+            payload = current_payload()
+            payload["name"] = "Nearby locality"
+            payload["sys"]["country"] = "LK"
+            return httpx.Response(200, json=payload)
+        if request.url.path == "/data/2.5/forecast":
+            return httpx.Response(
+                200,
+                json={
+                    "city": {"timezone": 19800},
+                    "list": [forecast_sample("2026-10-06T06:00:00", temperature=27.0)],
+                },
+            )
+        raise AssertionError(f"Unexpected path: {request.url.path}")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        report = await weather_module.get_weather_report(
+            "Sri Lanka",
+            date(2026, 10, 6),
+            date(2026, 10, 6),
+            7.8774,
+            80.7011,
+            "LK",
+            client=client,
+            today=date(2026, 10, 5),
+        )
+
+    assert "/geo/1.0/direct" not in requested_paths
+    assert report.location.name == "Sri Lanka"
+    assert report.location.country_code == "LK"
+    assert report.summary.startswith("Current conditions in Sri Lanka:")
+
+
+@pytest.mark.asyncio
 async def test_forecast_samples_are_grouped_by_resolved_local_date(monkeypatch):
     configure(monkeypatch)
     archive_calls: list[tuple[date, date]] = []

@@ -2,7 +2,7 @@
 
 TripWise is a full-stack travel itinerary planner and shared-expense tracker. Create a trip, fetch API weather and Gemini budget guidance, choose relevant places with Google Maps links, generate a day-by-day itinerary, record equal or custom expenses, and finish with exact balances and a settlement plan.
 
-Planning analysis uses OpenWeather for location, current conditions, and available forecasts; Open-Meteo supplies recent historical calendar dates when a trip is outside the forecast window. Two narrowly scoped Gemini requests estimate the complete group budget and suggest places. Results are validated and saved before the page changes. Itinerary and narrative generation can still use Gemini, a connected ChatGPT plan, an explicitly enabled OpenAI key, or the local provider.
+Trip creation uses Photon/OpenStreetMap autocomplete to save canonical labels and coordinates. Planning analysis sends those coordinates to OpenWeather for current conditions and available forecasts; Open-Meteo supplies recent historical calendar dates when a trip is outside the forecast window. Two narrowly scoped Gemini requests estimate the complete group budget and suggest places. Results are validated and saved before the page changes. Itinerary and narrative generation can still use Gemini, a connected ChatGPT plan, an explicitly enabled OpenAI key, or the local provider.
 
 ## What is included
 
@@ -59,7 +59,7 @@ make seed
 
 The backend stores the direct-development SQLite database at `backend/tripwise.db`.
 
-Trip analysis requires an OpenWeather key and an enabled Gemini key. Add both to the Git-ignored `backend/.env` before choosing **Analyze trip**. Open-Meteo historical weather and Google Maps search links do not require keys.
+Trip analysis requires an OpenWeather key and an enabled Gemini key. Add both to the Git-ignored `backend/.env` before choosing **Analyze trip**. Photon location search, Open-Meteo historical weather, and Google Maps search links do not require keys.
 
 ## Connect a ChatGPT plan
 
@@ -118,7 +118,7 @@ Backend settings use the `TRIPWISE_` prefix. For direct development, copy `.env.
 
 When no hosted AI provider is enabled, TripWise can still use its local itinerary and prose provider. Expense tracking, balances, settlements, and previously saved data remain available. New planning analysis specifically requires Gemini and OpenWeather.
 
-Planning geocodes the destination and reads current conditions plus the available forecast from OpenWeather. Dates outside that forecast are mapped to the most recent matching historical period available from Open-Meteo and are labeled with their actual source dates. Weather API or payload failures return a safe retry error and leave the last saved analysis unchanged; there is no generated or local planning-weather fallback.
+Trip creation saves the selected Photon label, country code, latitude, and longitude. Planning reads current conditions plus the available forecast from OpenWeather at those saved coordinates, avoiding ambiguous destination geocoding. Legacy trips without coordinates still use OpenWeather geocoding. Dates outside that forecast are mapped to the most recent matching historical period available from Open-Meteo and are labeled with their actual source dates. Weather API or payload failures return a safe retry error and leave the last saved analysis unchanged; there is no generated or local planning-weather fallback.
 
 For planning, Gemini receives separate budget and place prompts whose JSON responses must match strict Pydantic schemas. The backend calculates budget totals, validates every response, and replaces the saved report and candidate places in one transaction. A failed refresh never partially overwrites a successful report. ChatGPT plan and OpenAI adapters remain available for itinerary and narrative generation; those provider errors enter the durable itinerary retry flow, while summary prose can use the local writer.
 
@@ -131,6 +131,7 @@ React + TanStack Query
           v
 FastAPI routers -> domain services -> SQLAlchemy -> PostgreSQL / SQLite
                          |
+                         +-> Photon / OpenStreetMap location search
                          +-> OpenWeather + Open-Meteo weather adapters
                          +-> isolated Gemini budget + place adapters
                          +-> local itinerary/prose adapters
@@ -155,7 +156,8 @@ All trip-scoped reads and writes verify the fixed demo user’s ownership. That 
 | Concern | Deterministic backend | AI/provider adapter |
 | --- | --- | --- |
 | Trip dates and day count | Owns and validates | Never calculates |
-| Weather facts | Validates, dates, labels, and persists API results | OpenWeather supplies current/forecast data; Open-Meteo supplies historical rows; AI never participates |
+| Location identity | Requires a selected canonical option and persists coordinates | Photon/OpenStreetMap supplies filtered city, region, island, and country options |
+| Weather facts | Validates, dates, labels, and persists API results | OpenWeather supplies current/forecast data at saved coordinates; Open-Meteo supplies historical rows; AI never participates |
 | Budget bands and currency math | Validates currency/ranges and sums all six categories with `Decimal` | Gemini estimates category ranges, including round-trip group flights |
 | Place ranking | Validates bounds and owns persisted selection rules | Gemini supplies up to 20 places in relevance order |
 | Itinerary structure | Validates exact dates, day count, and activity times | May propose structured activities and prose |
@@ -178,6 +180,7 @@ All application routes are rooted at `/api/v1`.
 | `GET` | `/auth/chatgpt/status` | Read safe account, plan, and selected-model status |
 | `POST` | `/auth/chatgpt/model` | Select a model available to the connected plan |
 | `POST` | `/auth/chatgpt/disconnect` | Revoke and clear the ChatGPT session |
+| `GET` | `/locations/search` | Search filtered Photon location options for trip creation |
 | `GET`, `POST` | `/trips` | List or create trips |
 | `GET`, `DELETE` | `/trips/{trip_id}` | Read or delete a trip |
 | `POST`, `DELETE` | `/trips/{trip_id}/archive` | Archive or restore a trip |

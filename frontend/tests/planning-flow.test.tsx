@@ -194,11 +194,31 @@ afterEach(() => {
 })
 
 describe('trip creation', () => {
-  it('creates the trip with a departure city then adds every named traveler', async () => {
+  it('selects locations with the keyboard, submits coordinates, then adds every traveler', async () => {
     const calls: Array<{ url: string; body: Record<string, unknown> }> = []
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input)
       const body = init?.body ? JSON.parse(String(init.body)) : null
+      if (url.includes('/locations/search')) {
+        const isDeparture = url.includes('kind=departure')
+        return new Response(JSON.stringify([isDeparture ? {
+          id: 'R:1',
+          label: 'New Delhi, Delhi, India',
+          name: 'New Delhi',
+          country_code: 'IN',
+          latitude: 28.6139,
+          longitude: 77.209,
+          location_type: 'city',
+        } : {
+          id: 'R:2',
+          label: 'Sri Lanka',
+          name: 'Sri Lanka',
+          country_code: 'LK',
+          latitude: 7.8774,
+          longitude: 80.7011,
+          location_type: 'country',
+        }]))
+      }
       calls.push({ url, body })
       if (url.endsWith('/trips')) {
         return new Response(JSON.stringify({ trip_id: 'trip-1', status: 'PLANNING' }), { status: 201 })
@@ -214,8 +234,13 @@ describe('trip creation', () => {
     const user = userEvent.setup()
 
     await user.type(screen.getByLabelText(/trip name/i), 'Island loop')
-    await user.type(screen.getByLabelText(/departure city/i), 'Delhi')
-    await user.type(screen.getByLabelText(/destination/i), 'Sri Lanka')
+    await user.type(screen.getByLabelText(/departure city/i), 'Del')
+    expect(await screen.findByRole('option', { name: /New Delhi, Delhi, India.*IN/i })).toBeInTheDocument()
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(screen.getByLabelText(/departure city/i)).toHaveValue('New Delhi, Delhi, India')
+    await user.type(screen.getByLabelText(/destination/i), 'Sri')
+    expect(await screen.findByRole('option', { name: /Sri Lanka.*LK/i })).toBeInTheDocument()
+    await user.keyboard('{ArrowDown}{Enter}')
     await user.type(screen.getByLabelText(/start date/i), '2026-09-05')
     await user.clear(screen.getByLabelText(/days/i))
     await user.type(screen.getByLabelText(/days/i), '3')
@@ -223,8 +248,88 @@ describe('trip creation', () => {
     await user.click(screen.getByRole('button', { name: /create trip/i }))
 
     await waitFor(() => expect(calls).toHaveLength(4))
-    expect(calls[0].body).toMatchObject({ departure_city: 'Delhi', destination: 'Sri Lanka' })
+    expect(calls[0].body).toMatchObject({
+      departure_city: 'New Delhi, Delhi, India',
+      destination: 'Sri Lanka',
+      departure_location: {
+        label: 'New Delhi, Delhi, India',
+        country_code: 'IN',
+        latitude: 28.6139,
+        longitude: 77.209,
+        location_type: 'city',
+      },
+      destination_location: {
+        label: 'Sri Lanka',
+        country_code: 'LK',
+        latitude: 7.8774,
+        longitude: 80.7011,
+        location_type: 'country',
+      },
+    })
     expect(calls.slice(1).map((call) => call.body.name)).toEqual(['Shreya', 'Rahul', 'Amit'])
+  })
+
+  it('waits for two characters and debounces location searches', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      void input
+      void init
+      return new Response(JSON.stringify([]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage(<NewTripPage />)
+    const user = userEvent.setup()
+    const departure = screen.getByLabelText(/departure city/i)
+
+    await user.type(departure, 'D')
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await user.type(departure, 'e')
+    expect(fetchMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/locations/search?q=De&kind=departure')
+  })
+
+  it('ignores option navigation while a location search has no results yet', async () => {
+    let finishSearch: ((response: Response) => void) | undefined
+    const fetchMock = vi.fn(async () => new Promise<Response>((resolve) => {
+      finishSearch = resolve
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage(<NewTripPage />)
+    const user = userEvent.setup()
+    const departure = screen.getByLabelText(/departure city/i)
+
+    await user.type(departure, 'De')
+    expect(await screen.findByLabelText('Searching')).toBeInTheDocument()
+    await user.keyboard('{ArrowUp}{Enter}')
+
+    expect(departure).toHaveValue('De')
+    finishSearch?.(new Response(JSON.stringify([])))
+    await waitFor(() => expect(screen.queryByLabelText('Searching')).not.toBeInTheDocument())
+  })
+
+  it('rejects ambiguous free text when no suggested location was selected', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      void input
+      void init
+      return new Response(JSON.stringify([]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage(<NewTripPage />)
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText(/trip name/i), 'Island loop')
+    await user.type(screen.getByLabelText(/departure city/i), 'Delhi')
+    await user.type(screen.getByLabelText(/destination/i), 'Sri Lanka')
+    await user.type(screen.getByLabelText(/start date/i), '2026-09-05')
+    await user.type(screen.getByLabelText(/traveler names/i), 'Shreya')
+    await user.click(screen.getByRole('button', { name: /create trip/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Select a departure city and destination from the suggestions.',
+    )
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
   })
 })
 

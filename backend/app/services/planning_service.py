@@ -29,7 +29,10 @@ from app.schemas.planning import (
     WeatherReport,
 )
 
-WeatherFetcher = Callable[[str, date, date], Awaitable[WeatherReport]]
+WeatherFetcher = Callable[
+    [str, date, date, float | None, float | None, str | None],
+    Awaitable[WeatherReport],
+]
 
 
 class PlanningAIProvider(Protocol):
@@ -115,10 +118,18 @@ async def analyze_trip(
         number_of_days=trip.number_of_days,
         travel_style=trip.travel_style,
     )
+    destination_location = trip.destination_location
 
     try:
         weather_result, budget_result, places_result = await asyncio.gather(
-            active_weather_fetcher(trip.destination, trip.start_date, trip.end_date),
+            active_weather_fetcher(
+                trip.destination,
+                trip.start_date,
+                trip.end_date,
+                destination_location.latitude if destination_location else None,
+                destination_location.longitude if destination_location else None,
+                destination_location.country_code if destination_location else None,
+            ),
             active_planning_provider.estimate_budget(budget_facts),
             active_planning_provider.discover_places(place_facts),
             return_exceptions=True,

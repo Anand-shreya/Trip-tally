@@ -233,6 +233,9 @@ async def get_weather_report(
     destination: str,
     start_date: date,
     end_date: date,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    country_code: str | None = None,
     *,
     client: httpx.AsyncClient | None = None,
     today: date | None = None,
@@ -245,18 +248,29 @@ async def get_weather_report(
     owns_client = client is None
     active_client = client or httpx.AsyncClient()
     try:
-        geocoding_response = await active_client.get(
-            OPENWEATHER_GEOCODING_URL,
-            params={"q": destination, "limit": 1, "appid": api_key},
-            timeout=8.0,
-        )
-        geocoding_response.raise_for_status()
-        geocoding = geocoding_response.json()
-        if not isinstance(geocoding, list) or not geocoding:
+        uses_saved_location = latitude is not None and longitude is not None
+        if (latitude is None) != (longitude is None):
             raise WeatherProviderError("weather provider unavailable")
-        resolved = geocoding[0]
-        latitude = float(resolved["lat"])
-        longitude = float(resolved["lon"])
+        if uses_saved_location:
+            resolved = {
+                "name": destination,
+                "lat": latitude,
+                "lon": longitude,
+                "country": country_code or "",
+            }
+        else:
+            geocoding_response = await active_client.get(
+                OPENWEATHER_GEOCODING_URL,
+                params={"q": destination, "limit": 1, "appid": api_key},
+                timeout=8.0,
+            )
+            geocoding_response.raise_for_status()
+            geocoding = geocoding_response.json()
+            if not isinstance(geocoding, list) or not geocoding:
+                raise WeatherProviderError("weather provider unavailable")
+            resolved = geocoding[0]
+            latitude = float(resolved["lat"])
+            longitude = float(resolved["lon"])
 
         current_response, forecast_response = await asyncio.gather(
             active_client.get(
@@ -305,12 +319,18 @@ async def get_weather_report(
                 )
             )
 
-        location_name = str(current_payload.get("name") or resolved["name"])
-        country_code = str(current_payload.get("sys", {}).get("country") or resolved["country"])
+        location_name = (
+            destination
+            if uses_saved_location
+            else str(current_payload.get("name") or resolved["name"])
+        )
+        resolved_country_code = str(
+            country_code or current_payload.get("sys", {}).get("country") or resolved["country"]
+        ).upper()
         return WeatherReport(
             location=ResolvedLocation(
                 name=location_name,
-                country_code=country_code,
+                country_code=resolved_country_code,
                 latitude=latitude,
                 longitude=longitude,
                 timezone_offset_seconds=offset_seconds,
