@@ -12,7 +12,7 @@ dev:
 	docker compose up --build
 
 backend:
-	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload --port 8000
+	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload --port 8000 --no-access-log
 
 frontend:
 	$(NPM) --prefix frontend run dev

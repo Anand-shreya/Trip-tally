@@ -388,6 +388,26 @@ def test_token_exchange_failure_has_a_safe_stage(tmp_path):
     assert getattr(error.value, "reason", None) == "token_exchange_failed"
 
 
+def test_failed_initial_exchange_retains_issued_client_for_retry(tmp_path):
+    service = make_service(
+        tmp_path,
+        lambda _request: httpx.Response(400, json={"error": "invalid_grant"}),
+    )
+    first = service.start_authorization()
+
+    with pytest.raises(ValueError):
+        service.complete_authorization(
+            code="authorization-code",
+            state=first.state,
+            callback_client_id="issued-client",
+        )
+
+    retry_query = parse_qs(urlsplit(service.start_authorization().url).query)
+    assert retry_query["client_id"] == ["issued-client"]
+    assert "agent_name_hint" not in retry_query
+    assert service.status().signed_in is False
+
+
 def test_validate_id_token_checks_jwks_issuer_audience_and_nonce(monkeypatch):
     observed = {}
 

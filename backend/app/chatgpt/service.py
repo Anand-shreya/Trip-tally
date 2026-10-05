@@ -162,6 +162,8 @@ class ChatGPTService:
             raise ChatGPTAuthorizationError("registration_incomplete")
         else:
             issued_client_id = callback_client_id
+            current = current.model_copy(update={"client_id": issued_client_id})
+            self.store.save(current)
 
         try:
             response = self._http.post(
