@@ -20,6 +20,13 @@ p { line-height: 1.7; }
 .topbar-actions { display: flex; align-items: center; gap: 1rem; }
 .topbar-action { display: inline-flex; gap: .45rem; align-items: center; color: #14213d; text-decoration: none; font-weight: 700; }
 .chatgpt-connection { position: relative; }
+.ai-provider-status { min-height:45px;display:flex;align-items:center;gap:.65rem;border:1px solid #b9ccc9;border-radius:12px;padding:.55rem .85rem;color:#344259;background:#f8f7f2; }
+.ai-provider-status > svg { color:#687482; }
+.ai-provider-status > span { display:grid;line-height:1.1; }
+.ai-provider-status strong { font-size:.78rem; }
+.ai-provider-status small { margin-top:.2rem;color:#687482;font-size:.65rem; }
+.ai-provider-status.ai-provider-active { border-color:#83b5ae;background:#edf6f5;color:#155c5a; }
+.ai-provider-status.ai-provider-active > svg { color:#1e6f6d; }
 .chatgpt-connect-button, .chatgpt-plan-trigger { min-height: 44px; border-radius: 999px; padding: .65rem 1rem; display: inline-flex; align-items: center; justify-content: center; gap: .55rem; border: 0; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .chatgpt-connect-button { min-width: 242px; min-height: 45px; border-radius: 12px; background: #000; color: #fff; font-weight: 500; }
 .chatgpt-connect-button img { width: 21px; height: 21px; }

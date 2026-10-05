@@ -3,12 +3,14 @@ from datetime import time, timedelta
 from decimal import Decimal
 from typing import Any
 
+import httpx
 from pydantic import BaseModel, Field
 
 from app.chatgpt.deps import get_chatgpt_service
 from app.chatgpt.service import OPENAI_API_BASE
 from app.core.config import get_settings
 from app.models import Place, Trip
+from app.providers.gemini import GeminiProvider
 from app.schemas.itinerary import ActivityPlan, ItineraryDayPlan, ItineraryPlan
 
 
@@ -16,10 +18,25 @@ class SummaryNarrative(BaseModel):
     summary: str = Field(min_length=1, max_length=1200)
 
 
-def _provider(client: Any | None, model: str | None) -> tuple[Any | None, str]:
+def _provider(
+    client: Any | None,
+    model: str | None,
+    *,
+    gemini_http_client: httpx.Client | None = None,
+) -> tuple[Any | None, str]:
+    settings = get_settings()
     if client is not None:
-        settings = get_settings()
         return client, model or settings.openai_model
+    if getattr(settings, "gemini_enabled", False) and getattr(settings, "gemini_api_key", None):
+        selected_model = model or getattr(settings, "gemini_model", "gemini-3.5-flash-lite")
+        return (
+            GeminiProvider(
+                api_key=settings.gemini_api_key,
+                model=selected_model,
+                http_client=gemini_http_client,
+            ),
+            selected_model,
+        )
     chatgpt_service = get_chatgpt_service()
     chatgpt_credentials = chatgpt_service.inference_credentials()
     if chatgpt_credentials is not None:
@@ -32,7 +49,6 @@ def _provider(client: Any | None, model: str | None) -> tuple[Any | None, str]:
         )
     if chatgpt_service.status().signed_in:
         return None, model or ""
-    settings = get_settings()
     if not settings.openai_enabled or not settings.openai_api_key:
         return None, model or settings.openai_model
     from openai import OpenAI
@@ -65,6 +81,29 @@ def _stream_parsed(
     if response.output_parsed is None:
         raise RuntimeError("OpenAI returned no structured output")
     return response.output_parsed
+
+
+def _generate_structured(
+    provider: Any,
+    *,
+    model: str,
+    instructions: str,
+    input_messages: list[dict[str, Any]],
+    text_format: type[BaseModel],
+) -> BaseModel:
+    if isinstance(provider, GeminiProvider):
+        return provider.generate_structured(
+            instructions=instructions,
+            input_messages=input_messages,
+            text_format=text_format,
+        )
+    return _stream_parsed(
+        provider,
+        model=model,
+        instructions=instructions,
+        input_messages=input_messages,
+        text_format=text_format,
+    )
 
 
 def generate_local_itinerary(trip: Trip, places: list[Place]) -> ItineraryPlan:
@@ -118,9 +157,14 @@ def generate_itinerary(
     *,
     client: Any | None = None,
     model: str | None = None,
+    gemini_http_client: httpx.Client | None = None,
 ) -> ItineraryPlan:
     """Generate a schema-validated itinerary through Responses or the local provider."""
-    provider, selected_model = _provider(client, model)
+    provider, selected_model = _provider(
+        client,
+        model,
+        gemini_http_client=gemini_http_client,
+    )
     if provider is None:
         return generate_local_itinerary(trip, places)
 
@@ -147,7 +191,7 @@ def generate_itinerary(
             for place in places
         ],
     }
-    response = _stream_parsed(
+    response = _generate_structured(
         provider,
         model=selected_model,
         instructions=(
@@ -191,10 +235,15 @@ def generate_summary_text(
     currency: str,
     client: Any | None = None,
     model: str | None = None,
+    gemini_http_client: httpx.Client | None = None,
 ) -> str:
     """Turn backend-owned financial facts into prose without delegating calculations."""
     try:
-        provider, selected_model = _provider(client, model)
+        provider, selected_model = _provider(
+            client,
+            model,
+            gemini_http_client=gemini_http_client,
+        )
     except Exception:
         return _generate_local_summary_text(
             budget=budget,
@@ -218,7 +267,7 @@ def generate_summary_text(
         "currency": currency,
     }
     try:
-        response = _stream_parsed(
+        response = _generate_structured(
             provider,
             model=selected_model,
             instructions=(

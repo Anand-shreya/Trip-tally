@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     openai_enabled: bool = False
     openai_api_key: str | None = None
     openai_model: str = "gpt-5-mini"
+    gemini_enabled: bool = False
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
     chatgpt_credentials_path: str = ".tripwise/chatgpt-credentials.json"
     chatgpt_redirect_uri: str = "http://127.0.0.1:8000/api/v1/auth/chatgpt/callback"
     frontend_url: str = "http://localhost:5173"

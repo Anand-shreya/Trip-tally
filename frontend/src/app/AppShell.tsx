@@ -1,7 +1,7 @@
 import { Compass, Plus } from 'lucide-react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
 
-import { ChatGPTConnection } from '../components/ChatGPTConnection'
+import { AIProviderStatus } from '../components/AIProviderStatus'
 
 const tripStops = [
   ['Overview', ''],
@@ -18,7 +18,7 @@ export function RootShell() {
       <header className="topbar">
         <Link className="brand" to="/"><Compass aria-hidden="true" /><span>TripWise</span></Link>
         <div className="topbar-actions">
-          <ChatGPTConnection />
+          <AIProviderStatus />
           <Link className="topbar-action" to="/trips/new"><Plus size={18} /> New trip</Link>
         </div>
       </header>

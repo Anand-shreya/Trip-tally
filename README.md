@@ -2,7 +2,7 @@
 
 TripWise is a full-stack travel itinerary planner and shared-expense tracker. Create a trip, get deterministic weather and budget guidance, choose recommended places, generate a day-by-day itinerary, record equal or custom expenses, and finish with exact balances and a settlement plan.
 
-The application is deliberately useful without paid services: its default weather, destination, currency, itinerary, and narrative providers are local and deterministic. Eligible ChatGPT users can connect their plan for AI generation without putting a key in the browser; an OpenAI API key remains an optional, explicitly enabled alternative.
+The application is deliberately useful without paid services: its default weather, destination, currency, itinerary, and narrative providers are local and deterministic. When explicitly enabled, Gemini's hosted free tier generates schema-validated itineraries and summaries while keeping its key on the backend. ChatGPT plan and OpenAI API-key adapters remain optional alternatives.
 
 ## What is included
 
@@ -67,6 +67,18 @@ Authorization returns to the loopback backend at `127.0.0.1`. Access, refresh, a
 
 Sign in with ChatGPT is separate from an OpenAI API key and API billing. TripWise prefers a connected ChatGPT plan, uses the legacy API-key route only when it is explicitly enabled, and otherwise keeps using the deterministic local provider. It never falls through from a failed ChatGPT-plan request to the API-key billing path.
 
+## Use Gemini's free tier
+
+Create a Gemini key in [Google AI Studio](https://aistudio.google.com/app/apikey), then set these values in the Git-ignored `backend/.env` file:
+
+```env
+TRIPWISE_GEMINI_ENABLED=true
+TRIPWISE_GEMINI_API_KEY=your-key
+TRIPWISE_GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Gemini is selected before the ChatGPT and paid OpenAI adapters. The key never enters the browser. Trip and spending facts used for generation are sent to Google's API; Google states that free-tier inputs may be used to improve its products. Disable Gemini to return to the deterministic local provider.
+
 ## Demo workflow
 
 1. Create a trip with destination, dates, currency, budget, travel style, and travelers.
@@ -94,18 +106,21 @@ Backend settings use the `TRIPWISE_` prefix. For direct development, copy `.env.
 | `TRIPWISE_OPENAI_ENABLED` | `false` | Explicit opt-in required before any OpenAI request |
 | `TRIPWISE_OPENAI_API_KEY` | unset | Optional external AI provider credential |
 | `TRIPWISE_OPENAI_MODEL` | `gpt-5-mini` | Optional AI model name |
+| `TRIPWISE_GEMINI_ENABLED` | `false` | Explicit opt-in required before Gemini requests |
+| `TRIPWISE_GEMINI_API_KEY` | unset | Backend-only Google AI Studio credential |
+| `TRIPWISE_GEMINI_MODEL` | `gemini-3.5-flash-lite` | Hosted free-tier model used for structured generation |
 | `TRIPWISE_CHATGPT_CREDENTIALS_PATH` | `.tripwise/chatgpt-credentials.json` | Backend-only Sign in with ChatGPT session file |
 | `TRIPWISE_CHATGPT_REDIRECT_URI` | `http://127.0.0.1:8000/api/v1/auth/chatgpt/callback` | Required loopback OAuth callback; do not replace `127.0.0.1` with `localhost` |
 | `TRIPWISE_FRONTEND_URL` | `http://localhost:5173` | Browser destination after OAuth completes |
 | `VITE_API_URL` | `http://localhost:8000/api/v1` | Browser API root, embedded at frontend build time |
 
-When `TRIPWISE_OPENAI_API_KEY` is absent, TripWise uses its deterministic itinerary and prose provider. The core product remains fully functional.
+When no hosted provider is enabled, TripWise uses its deterministic itinerary and prose provider. The core product remains fully functional.
 
 When `TRIPWISE_WEATHER_PROVIDER=openweather` and a key is configured, analysis uses live current
 conditions from OpenWeather. These conditions are labeled as current observations rather than a
 future forecast. API or payload failures automatically fall back to the deterministic local provider.
 
-When ChatGPT is connected, TripWise uses the selected listable model through streaming Responses requests with `store=false` and Pydantic-validated structured output. The implementation follows the official [Sign in with ChatGPT documentation](https://developers.openai.com/siwc/token-sharing-open-source). Only when no ChatGPT plan is active, `TRIPWISE_OPENAI_ENABLED=true`, and a key is configured does the legacy adapter use API billing. Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic local writer.
+When Gemini is enabled, TripWise requests JSON that matches its Pydantic schema and validates the complete response before persistence. When Gemini is disabled and ChatGPT is connected, TripWise uses the selected listable model through streaming Responses requests with `store=false`. Only when neither is active, `TRIPWISE_OPENAI_ENABLED=true`, and an OpenAI key is configured does the legacy adapter use API billing. Provider errors enter the durable itinerary retry flow; summary prose falls back to the deterministic local writer.
 
 ## Architecture
 
@@ -117,6 +132,7 @@ React + TanStack Query
 FastAPI routers -> domain services -> SQLAlchemy -> PostgreSQL / SQLite
                          |
                          +-> deterministic provider adapters
+                         +-> Gemini structured-output adapter
                          +-> Sign in with ChatGPT token + model session
                          +-> durable Job -> inline handler or Redis/RQ worker
 ```
@@ -155,6 +171,7 @@ All application routes are rooted at `/api/v1`.
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | API health |
+| `GET` | `/ai/status` | Read the safe active-provider status |
 | `GET` | `/auth/chatgpt/start` | Start loopback Sign in with ChatGPT authorization |
 | `GET` | `/auth/chatgpt/callback` | Validate the OAuth callback and return to the frontend |
 | `GET` | `/auth/chatgpt/status` | Read safe account, plan, and selected-model status |

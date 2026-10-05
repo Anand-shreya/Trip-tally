@@ -17,6 +17,7 @@ def isolate_chatgpt_credentials(monkeypatch, tmp_path):
         "TRIPWISE_CHATGPT_CREDENTIALS_PATH",
         str(tmp_path / "chatgpt-credentials.json"),
     )
+    monkeypatch.setenv("TRIPWISE_GEMINI_ENABLED", "false")
     yield
     get_chatgpt_service.cache_clear()
     get_settings.cache_clear()

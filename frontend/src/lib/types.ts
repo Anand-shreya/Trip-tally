@@ -152,6 +152,13 @@ export interface Job {
   error: string | null
 }
 
+export interface AIProviderStatus {
+  provider: 'gemini' | 'local'
+  label: string
+  model: string | null
+  ai_enabled: boolean
+}
+
 export type ChatGPTConnectionState =
   | 'disconnected'
   | 'connected'

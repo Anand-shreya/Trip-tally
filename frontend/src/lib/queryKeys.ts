@@ -1,4 +1,5 @@
 export const queryKeys = {
+  aiProvider: ['ai', 'provider-status'] as const,
   chatgpt: ['chatgpt', 'status'] as const,
   trips: ['trips'] as const,
   trip: (tripId: string) => ['trips', tripId] as const,
