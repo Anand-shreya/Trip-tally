@@ -85,7 +85,9 @@ describe('ChatGPT connection control', () => {
     const { startAuthorization } = renderConnection(disconnectedStatus)
     const user = userEvent.setup()
 
-    await user.click(await screen.findByRole('button', { name: 'Continue with ChatGPT' }))
+    const button = await screen.findByRole('button', { name: 'Continue with ChatGPT' })
+    expect(button.querySelector('img')).toHaveAttribute('src', '/chatgpt-logo-white.svg')
+    await user.click(button)
 
     expect(startAuthorization).toHaveBeenCalledOnce()
   })
@@ -113,11 +115,18 @@ describe('ChatGPT connection control', () => {
   })
 
   it('welcomes the user after a successful callback and removes the marker', async () => {
-    renderConnection(connectedStatus, { path: '/?chatgpt=connected' })
+    renderConnection(connectedStatus, { path: '/?chatgpt=connected&welcome=1' })
 
     const dialog = await screen.findByRole('dialog', { name: /chatgpt is connected/i })
     expect(dialog).toHaveTextContent('You’re using your ChatGPT plan.')
     expect(window.location.search).toBe('')
+  })
+
+  it('does not repeat the welcome after a returning sign-in', async () => {
+    renderConnection(connectedStatus, { path: '/?chatgpt=connected' })
+
+    await screen.findByRole('button', { name: /using chatgpt plan/i })
+    expect(screen.queryByRole('dialog', { name: /chatgpt is connected/i })).not.toBeInTheDocument()
   })
 
   it('offers reconnection when direct plan scope was declined', async () => {
@@ -133,6 +142,21 @@ describe('ChatGPT connection control', () => {
     expect(await screen.findByText(/plan access wasn’t granted/i)).toBeInTheDocument()
     expect(
       await screen.findByRole('button', { name: 'Continue with ChatGPT' }),
+    ).toBeInTheDocument()
+  })
+
+  it('explains when the account has no listable ChatGPT models', async () => {
+    const noModelsStatus = {
+      ...connectedStatus,
+      state: 'model_required' as ChatGPTStatus['state'],
+      plan_enabled: false,
+      models: [],
+      selected_model: null,
+    }
+    renderConnection(noModelsStatus)
+
+    expect(
+      await screen.findByText(/no supported chatgpt models are available/i),
     ).toBeInTheDocument()
   })
 

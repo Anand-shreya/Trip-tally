@@ -152,7 +152,11 @@ export interface Job {
   error: string | null
 }
 
-export type ChatGPTConnectionState = 'disconnected' | 'connected' | 'scope_required'
+export type ChatGPTConnectionState =
+  | 'disconnected'
+  | 'connected'
+  | 'scope_required'
+  | 'model_required'
 
 export interface ChatGPTStatus {
   state: ChatGPTConnectionState

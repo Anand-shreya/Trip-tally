@@ -25,6 +25,7 @@ class FakeService:
     exchange_calls: int = 0
     selected: str | None = None
     disconnect_error: bool = False
+    initial_registration: bool = True
 
     def start_authorization(self):
         return AuthorizationStart(
@@ -37,7 +38,11 @@ class FakeService:
         assert code == "authorization-code"
         assert state == "state-value"
         assert callback_client_id == "issued-client"
+        self.initial_registration = False
         return self.current_status
+
+    def is_initial_registration(self):
+        return self.initial_registration
 
     def status(self):
         return self.current_status
@@ -108,10 +113,24 @@ def test_callback_completes_connection_and_clears_cookie(chatgpt_client):
     )
 
     assert response.status_code == 307
-    assert response.headers["location"] == "http://localhost:5173/?chatgpt=connected"
+    assert response.headers["location"] == ("http://localhost:5173/?chatgpt=connected&welcome=1")
     assert "tripwise_chatgpt_state=" in response.headers["set-cookie"]
     assert "Max-Age=0" in response.headers["set-cookie"]
     assert service.exchange_calls == 1
+
+
+def test_returning_callback_does_not_repeat_first_connection_welcome(chatgpt_client):
+    client, service = chatgpt_client
+    service.initial_registration = False
+    client.cookies.set("tripwise_chatgpt_state", "state-value")
+
+    response = client.get(
+        "/api/v1/auth/chatgpt/callback"
+        "?code=authorization-code&state=state-value&client_id=issued-client",
+        follow_redirects=False,
+    )
+
+    assert response.headers["location"] == "http://localhost:5173/?chatgpt=connected"
 
 
 def test_callback_maps_declined_scope_to_safe_frontend_state(chatgpt_client):

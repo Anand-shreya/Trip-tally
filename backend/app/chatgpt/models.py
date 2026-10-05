@@ -56,7 +56,7 @@ class ChatGPTCredentials(BaseModel):
 
 
 class ChatGPTStatus(BaseModel):
-    state: Literal["disconnected", "connected", "scope_required"]
+    state: Literal["disconnected", "connected", "scope_required", "model_required"]
     signed_in: bool
     plan_enabled: bool
     name: str | None = None

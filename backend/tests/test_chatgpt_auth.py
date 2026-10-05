@@ -163,6 +163,45 @@ def test_missing_direct_scope_keeps_identity_but_disables_plan(tmp_path):
     assert result.models == []
 
 
+def test_direct_scope_without_listable_models_has_a_distinct_state(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/oauth/token"):
+            return successful_handler(request)
+        if request.url.path == "/v1/models":
+            return httpx.Response(
+                200,
+                json={"data": [{"id": "gpt-hidden", "visibility": "hidden"}]},
+            )
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    service = make_service(tmp_path, handler)
+    start = service.start_authorization()
+
+    result = service.complete_authorization(
+        code="authorization-code",
+        state=start.state,
+        callback_client_id="issued-client",
+    )
+
+    assert result.signed_in is True
+    assert result.state == "model_required"
+    assert result.models == []
+
+
+def test_initial_registration_ends_after_first_successful_callback(tmp_path):
+    service = make_service(tmp_path, successful_handler)
+
+    assert service.is_initial_registration() is True
+    start = service.start_authorization()
+    service.complete_authorization(
+        code="authorization-code",
+        state=start.state,
+        callback_client_id="issued-client",
+    )
+
+    assert service.is_initial_registration() is False
+
+
 def test_initial_callback_rejects_registration_placeholder(tmp_path):
     service = make_service(tmp_path, successful_handler)
     start = service.start_authorization()

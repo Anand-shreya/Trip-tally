@@ -274,7 +274,10 @@ def test_stored_openai_key_is_not_used_until_explicitly_enabled(monkeypatch):
     monkeypatch.setattr(
         ai_module,
         "get_chatgpt_service",
-        lambda: SimpleNamespace(inference_credentials=lambda: None),
+        lambda: SimpleNamespace(
+            inference_credentials=lambda: None,
+            status=lambda: SimpleNamespace(signed_in=False),
+        ),
     )
     monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=ForbiddenOpenAI))
 
@@ -312,7 +315,10 @@ def test_stored_openai_key_is_used_only_after_explicit_enable(monkeypatch):
     monkeypatch.setattr(
         ai_module,
         "get_chatgpt_service",
-        lambda: SimpleNamespace(inference_credentials=lambda: None),
+        lambda: SimpleNamespace(
+            inference_credentials=lambda: None,
+            status=lambda: SimpleNamespace(signed_in=False),
+        ),
     )
     monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=EnabledOpenAI))
 
@@ -410,6 +416,82 @@ def test_chatgpt_plan_failure_never_falls_through_to_paid_api_key(monkeypatch):
 
     assert "3550.00 INR remaining" in result
     assert constructed_with == ["oauth-access-token"]
+
+
+def test_chatgpt_refresh_failure_uses_local_summary_without_paid_fallback(monkeypatch):
+    import sys
+
+    from app.providers import ai as ai_module
+
+    class ForbiddenOpenAI:
+        def __init__(self, **_kwargs):
+            raise AssertionError("A failed ChatGPT refresh must not use the API key")
+
+    def fail_refresh():
+        raise RuntimeError("refresh token expired")
+
+    monkeypatch.setattr(
+        ai_module,
+        "get_chatgpt_service",
+        lambda: SimpleNamespace(inference_credentials=fail_refresh),
+    )
+    monkeypatch.setattr(
+        ai_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            openai_enabled=True,
+            openai_api_key="paid-api-key",
+            openai_model="gpt-api",
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=ForbiddenOpenAI))
+
+    result = ai_module.generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+    )
+
+    assert "3550.00 INR remaining" in result
+
+
+def test_connected_account_without_plan_scope_never_uses_paid_api_key(monkeypatch):
+    import sys
+
+    from app.providers import ai as ai_module
+
+    class ForbiddenOpenAI:
+        def __init__(self, **_kwargs):
+            raise AssertionError("A connected ChatGPT account must not fall through to API billing")
+
+    monkeypatch.setattr(
+        ai_module,
+        "get_chatgpt_service",
+        lambda: SimpleNamespace(
+            inference_credentials=lambda: None,
+            status=lambda: SimpleNamespace(signed_in=True, selected_model=None),
+        ),
+    )
+    monkeypatch.setattr(
+        ai_module,
+        "get_settings",
+        lambda: SimpleNamespace(
+            openai_enabled=True,
+            openai_api_key="paid-api-key",
+            openai_model="gpt-api",
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=ForbiddenOpenAI))
+
+    result = ai_module.generate_summary_text(
+        budget=Decimal("80000"),
+        total_spent=Decimal("76450"),
+        top_category="ACCOMMODATION",
+        currency="INR",
+    )
+
+    assert "3550.00 INR remaining" in result
 
 
 def test_rq_handler_raises_retryable_job_failures(monkeypatch):

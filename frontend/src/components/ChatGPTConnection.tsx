@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ExternalLink, LogOut, Sparkles, X } from 'lucide-react'
+import { ChevronDown, ExternalLink, LogOut, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import {
@@ -19,6 +19,7 @@ interface ChatGPTConnectionProps {
 interface CallbackState {
   result: string | null
   reason: string | null
+  welcome: boolean
 }
 
 function readCallbackState(): CallbackState {
@@ -26,6 +27,7 @@ function readCallbackState(): CallbackState {
   return {
     result: parameters.get('chatgpt'),
     reason: parameters.get('reason'),
+    welcome: parameters.get('welcome') === '1',
   }
 }
 
@@ -33,6 +35,7 @@ function clearCallbackState() {
   const url = new URL(window.location.href)
   url.searchParams.delete('chatgpt')
   url.searchParams.delete('reason')
+  url.searchParams.delete('welcome')
   const cleanUrl = `${url.pathname}${url.search}${url.hash}`
   window.history.replaceState(window.history.state, '', cleanUrl)
 }
@@ -51,7 +54,9 @@ export function ChatGPTConnection({
   const containerRef = useRef<HTMLDivElement>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [callback] = useState(readCallbackState)
-  const [welcomeOpen, setWelcomeOpen] = useState(callback.result === 'connected')
+  const [welcomeOpen, setWelcomeOpen] = useState(
+    callback.result === 'connected' && callback.welcome,
+  )
   const statusQuery = useQuery({
     queryKey: queryKeys.chatgpt,
     queryFn: getChatGPTStatus,
@@ -99,7 +104,8 @@ export function ChatGPTConnection({
 
   const status = statusQuery.data
   const isConnected = status?.plan_enabled === true
-  const needsScope = status?.signed_in === true && !isConnected
+  const needsScope = status?.state === 'scope_required'
+  const needsModel = status?.state === 'model_required'
   const mutationError = modelMutation.error ?? disconnectMutation.error
 
   return (
@@ -126,7 +132,7 @@ export function ChatGPTConnection({
           onClick={onStartAuthorization}
           type="button"
         >
-          <Sparkles size={18} aria-hidden="true" />
+          <img alt="" src="/chatgpt-logo-white.svg" />
           {statusQuery.isLoading ? 'Checking ChatGPT…' : 'Continue with ChatGPT'}
         </button>
       )}
@@ -134,6 +140,12 @@ export function ChatGPTConnection({
       {needsScope && (
         <div className="chatgpt-inline-notice" role="status">
           ChatGPT is connected, but plan access wasn’t granted. Continue again to approve it.
+        </div>
+      )}
+
+      {needsModel && (
+        <div className="chatgpt-inline-notice" role="status">
+          This account is connected, but no supported ChatGPT models are available.
         </div>
       )}
 
@@ -205,11 +217,16 @@ export function ChatGPTConnection({
             >
               <X aria-hidden="true" />
             </button>
-            <span className="chatgpt-welcome-mark" aria-hidden="true"><Sparkles /></span>
+            <span className="chatgpt-welcome-mark" aria-hidden="true">
+              <img alt="" src="/chatgpt-logo-white.svg" />
+            </span>
             <h2 id="chatgpt-welcome-title">ChatGPT is connected</h2>
-            <p>You’re using your ChatGPT plan.</p>
+            <p>
+              You’re using your ChatGPT plan. Eligible AI requests in TripWise will use your
+              plan, and you can manage usage in ChatGPT settings.
+            </p>
             <button className="button secondary" onClick={() => setWelcomeOpen(false)} type="button">
-              Continue planning
+              Got it
             </button>
           </section>
         </div>

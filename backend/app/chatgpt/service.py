@@ -222,8 +222,14 @@ class ChatGPTService:
                 plan_enabled=False,
             )
         plan_enabled = credentials.plan_enabled
+        if plan_enabled:
+            connection_state = "connected"
+        elif DIRECT_TOKEN_SCOPE in credentials.scopes:
+            connection_state = "model_required"
+        else:
+            connection_state = "scope_required"
         return ChatGPTStatus(
-            state="connected" if plan_enabled else "scope_required",
+            state=connection_state,
             signed_in=True,
             plan_enabled=plan_enabled,
             name=credentials.name,
@@ -231,6 +237,10 @@ class ChatGPTService:
             models=credentials.models,
             selected_model=credentials.selected_model,
         )
+
+    def is_initial_registration(self) -> bool:
+        credentials = self.store.load()
+        return credentials is None or credentials.client_id is None
 
     def select_model(self, model: str) -> ChatGPTStatus:
         credentials = self.store.load()

@@ -17,10 +17,11 @@ class SummaryNarrative(BaseModel):
 
 
 def _provider(client: Any | None, model: str | None) -> tuple[Any | None, str]:
-    settings = get_settings()
     if client is not None:
+        settings = get_settings()
         return client, model or settings.openai_model
-    chatgpt_credentials = get_chatgpt_service().inference_credentials()
+    chatgpt_service = get_chatgpt_service()
+    chatgpt_credentials = chatgpt_service.inference_credentials()
     if chatgpt_credentials is not None:
         access_token, selected_model = chatgpt_credentials
         from openai import OpenAI
@@ -29,6 +30,9 @@ def _provider(client: Any | None, model: str | None) -> tuple[Any | None, str]:
             OpenAI(api_key=access_token, base_url=OPENAI_API_BASE, max_retries=0),
             model or selected_model,
         )
+    if chatgpt_service.status().signed_in:
+        return None, model or ""
+    settings = get_settings()
     if not settings.openai_enabled or not settings.openai_api_key:
         return None, model or settings.openai_model
     from openai import OpenAI
@@ -190,7 +194,15 @@ def generate_summary_text(
     model: str | None = None,
 ) -> str:
     """Turn backend-owned financial facts into prose without delegating calculations."""
-    provider, selected_model = _provider(client, model)
+    try:
+        provider, selected_model = _provider(client, model)
+    except Exception:
+        return _generate_local_summary_text(
+            budget=budget,
+            total_spent=total_spent,
+            top_category=top_category,
+            currency=currency,
+        )
     if provider is None:
         return _generate_local_summary_text(
             budget=budget,

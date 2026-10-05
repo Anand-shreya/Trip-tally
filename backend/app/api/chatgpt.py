@@ -15,11 +15,15 @@ COOKIE_PATH = "/api/v1/auth/chatgpt"
 Service = Annotated[ChatGPTService, Depends(get_chatgpt_service)]
 
 
-def _frontend_redirect(*, result: str, reason: str | None = None) -> RedirectResponse:
+def _frontend_redirect(
+    *, result: str, reason: str | None = None, welcome: bool = False
+) -> RedirectResponse:
     settings = get_settings()
     query = {"chatgpt": result}
     if reason:
         query["reason"] = reason
+    if welcome:
+        query["welcome"] = "1"
     response = RedirectResponse(
         f"{settings.frontend_url.rstrip('/')}/?{urlencode(query)}",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
@@ -67,6 +71,7 @@ def complete_chatgpt_authorization(
         return _frontend_redirect(result="error", reason="state_mismatch")
     if error or not code:
         return _frontend_redirect(result="error", reason="authorization_failed")
+    first_connection = service.is_initial_registration()
     try:
         result = service.complete_authorization(
             code=code,
@@ -75,8 +80,10 @@ def complete_chatgpt_authorization(
         )
     except Exception:
         return _frontend_redirect(result="error", reason="authorization_failed")
-    callback_result = "connected" if result.plan_enabled else "scope_required"
-    return _frontend_redirect(result=callback_result)
+    return _frontend_redirect(
+        result=result.state,
+        welcome=first_connection and result.plan_enabled,
+    )
 
 
 def hmac_compare(left: str, right: str) -> bool:
