@@ -248,7 +248,7 @@ class ChatGPTService:
         )
 
     def refresh_access_token(self) -> tuple[str, str]:
-        with self._refresh_lock:
+        with self._refresh_lock, self.store.session_lock():
             credentials = self.store.load()
             if (
                 credentials is None

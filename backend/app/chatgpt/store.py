@@ -1,5 +1,9 @@
+import fcntl
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from threading import RLock
 from uuid import uuid4
 
@@ -22,15 +26,39 @@ class CredentialStore:
     def save(self, credentials: ChatGPTCredentials) -> None:
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = self.path.with_suffix(".tmp")
+            temporary_path: Path | None = None
             try:
-                temporary.write_text(credentials.model_dump_json(indent=2), encoding="utf-8")
-                os.chmod(temporary, 0o600)
-                os.replace(temporary, self.path)
+                with NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    dir=self.path.parent,
+                    prefix=f".{self.path.name}.",
+                    suffix=".tmp",
+                    delete=False,
+                ) as temporary:
+                    temporary.write(credentials.model_dump_json(indent=2))
+                    temporary.flush()
+                    os.fsync(temporary.fileno())
+                    temporary_path = Path(temporary.name)
+                os.chmod(temporary_path, 0o600)
+                os.replace(temporary_path, self.path)
                 os.chmod(self.path, 0o600)
             finally:
-                if temporary.exists():
-                    temporary.unlink()
+                if temporary_path is not None and temporary_path.exists():
+                    temporary_path.unlink()
+
+    @contextmanager
+    def session_lock(self) -> Iterator[None]:
+        """Serialize rotating-token operations across API and worker processes."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self.path.with_suffix(f"{self.path.suffix}.lock")
+        with lock_path.open("a+", encoding="utf-8") as lock_file:
+            os.chmod(lock_path, 0o600)
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def ensure_host_id(self) -> ChatGPTCredentials:
         with self._lock:

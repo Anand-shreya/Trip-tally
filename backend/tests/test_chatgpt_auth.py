@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from time import sleep
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -293,6 +294,33 @@ def test_refresh_is_serialized_and_persists_rotated_token(tmp_path):
     assert calls == 1
     assert results == [("rotated-access", "gpt-listable")] * 2
     assert service.store.load().refresh_token == "rotated-refresh"
+
+
+def test_refresh_is_serialized_across_service_instances(tmp_path):
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        sleep(0.05)
+        return httpx.Response(
+            200,
+            json={
+                "access_token": "rotated-access",
+                "refresh_token": "rotated-refresh",
+                "expires_in": 3600,
+                "scope": "openid chatgpt.tokens.use.direct",
+            },
+        )
+
+    first = make_service(tmp_path, handler, credentials=expired_credentials())
+    second = make_service(tmp_path, handler)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda service: service.refresh_access_token(), [first, second]))
+
+    assert calls == 1
+    assert results == [("rotated-access", "gpt-listable")] * 2
 
 
 def test_select_model_rejects_unlisted_slug(tmp_path):
