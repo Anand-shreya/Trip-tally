@@ -15,6 +15,16 @@ const categories: Array<{
   { key: 'activities', label: 'Activities' },
 ]
 
+function categoryLabel(
+  key: keyof BudgetReportData['categories'],
+  label: string,
+  travelerCount: number,
+): string {
+  if (key !== 'flights') return label
+  const travelers = travelerCount === 1 ? 'traveler' : 'travelers'
+  return `Round-trip economy flights · ${travelerCount} ${travelers}`
+}
+
 function MoneyCells({ range, currency }: { range: EstimateRange; currency: string }) {
   return (
     <>
@@ -52,7 +62,7 @@ export function BudgetReport({
           <tbody>
             {categories.map(({ key, label }) => (
               <tr key={key}>
-                <th scope="row">{key === 'flights' && <Plane size={16} />} {label}</th>
+                <th scope="row">{key === 'flights' && <Plane size={16} />} {categoryLabel(key, label, report.traveler_count)}</th>
                 <MoneyCells range={report.categories[key]} currency={report.currency} />
               </tr>
             ))}

@@ -278,7 +278,14 @@ describe('planning analysis reads', () => {
     expect(within(budget).getByText('₹1,25,000')).toBeInTheDocument()
     expect(within(budget).getByText('₹91,000 – ₹1,61,000')).toBeInTheDocument()
     expect(within(budget).getByText('1 traveler · 5 days')).toBeInTheDocument()
-    for (const label of ['Round-trip flights', 'Accommodation', 'Food', 'Local transport', 'Tickets', 'Activities']) {
+    for (const label of [
+      'Round-trip economy flights · 1 traveler',
+      'Accommodation',
+      'Food',
+      'Local transport',
+      'Tickets',
+      'Activities',
+    ]) {
       expect(within(budget).getByRole('row', { name: new RegExp(label, 'i') })).toBeInTheDocument()
     }
     expect(within(budget).getByText('gemini-3.5-flash-lite')).toBeInTheDocument()
@@ -300,6 +307,41 @@ describe('planning analysis reads', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls.every(([, init]) => !init?.method)).toBe(true)
+  })
+
+  it('shows current rain and snow volumes when the provider returns them', async () => {
+    planningFetch({
+      analysisResponse: {
+        ...analysis,
+        weather: {
+          ...analysis.weather,
+          current: {
+            ...analysis.weather.current,
+            rain_mm_1h: '0.4',
+            snow_mm_1h: '0.2',
+          },
+        },
+      },
+    })
+    renderPlan()
+
+    const weather = await screen.findByRole('region', { name: 'Weather report' })
+    const currentDetails = weather.querySelector('.weather-details')
+    expect(currentDetails).not.toBeNull()
+    expect(within(weather).getByText('Rain (1h)')).toBeInTheDocument()
+    expect(within(currentDetails as HTMLElement).getByText('0.4 mm')).toBeInTheDocument()
+    expect(within(weather).getByText('Snow (1h)')).toBeInTheDocument()
+    expect(within(currentDetails as HTMLElement).getByText('0.2 mm')).toBeInTheDocument()
+  })
+
+  it('labels flights as round-trip economy for the full traveler count', async () => {
+    planningFetch()
+    renderPlan()
+
+    const budget = await screen.findByRole('region', { name: 'Trip budget estimate' })
+    expect(within(budget).getByRole('rowheader', {
+      name: 'Round-trip economy flights · 1 traveler',
+    })).toBeInTheDocument()
   })
 })
 

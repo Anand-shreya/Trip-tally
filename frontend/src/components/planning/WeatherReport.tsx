@@ -1,4 +1,4 @@
-import { CloudSun, Droplets, Eye, Gauge, Sunrise, Sunset, Wind } from 'lucide-react'
+import { CloudRain, CloudSun, Droplets, Eye, Gauge, Snowflake, Sunrise, Sunset, Wind } from 'lucide-react'
 
 import { formatDate } from '../../lib/format'
 import type { DailyWeather, WeatherReport as WeatherReportData } from '../../lib/types'
@@ -94,6 +94,8 @@ export function WeatherReport({
           <div><Eye /><dt>Visibility</dt><dd>{metric(current.visibility_m / 1000)} km</dd></div>
           <div><CloudSun /><dt>Cloud cover</dt><dd>{current.cloud_percent}%</dd></div>
           <div><Wind /><dt>Wind</dt><dd>{metric(current.wind_speed_kph)} km/h · {current.wind_direction_degrees}°</dd></div>
+          {current.rain_mm_1h !== null && <div><CloudRain /><dt>Rain (1h)</dt><dd>{metric(current.rain_mm_1h)} mm</dd></div>}
+          {current.snow_mm_1h !== null && <div><Snowflake /><dt>Snow (1h)</dt><dd>{metric(current.snow_mm_1h)} mm</dd></div>}
           <div><Sunrise /><dt>Sunrise</dt><dd>{utcTime(current.sunrise_at)}</dd></div>
           <div><Sunset /><dt>Sunset</dt><dd>{utcTime(current.sunset_at)}</dd></div>
         </dl>
