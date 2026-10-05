@@ -1,4 +1,5 @@
 export const queryKeys = {
+  chatgpt: ['chatgpt', 'status'] as const,
   trips: ['trips'] as const,
   trip: (tripId: string) => ['trips', tripId] as const,
   travelers: (tripId: string) => ['trips', tripId, 'travelers'] as const,

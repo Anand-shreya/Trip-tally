@@ -151,3 +151,16 @@ export interface Job {
   result: Record<string, unknown> | null
   error: string | null
 }
+
+export type ChatGPTConnectionState = 'disconnected' | 'connected' | 'scope_required'
+
+export interface ChatGPTStatus {
+  state: ChatGPTConnectionState
+  signed_in: boolean
+  plan_enabled: boolean
+  name: string | null
+  email: string | null
+  models: string[]
+  selected_model: string | null
+  manage_usage_url: string
+}
