@@ -112,6 +112,51 @@ def test_returning_authorization_uses_issued_client_without_registration_hint(tm
     assert "agent_name_hint" not in query
 
 
+def test_returning_callback_without_client_id_uses_stored_issued_client(tmp_path):
+    registered = ChatGPTCredentials(
+        host_id="urn:uuid:00000000-0000-0000-0000-000000000001",
+        client_id="issued-client",
+        subject="account-subject",
+    )
+    observed = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/oauth/token"):
+            observed.update(parse_qs(request.content.decode()))
+        return successful_handler(request)
+
+    service = make_service(tmp_path, handler, credentials=registered)
+    start = service.start_authorization()
+
+    result = service.complete_authorization(
+        code="authorization-code",
+        state=start.state,
+        callback_client_id=None,
+    )
+
+    assert result.plan_enabled is True
+    assert observed["client_id"] == ["issued-client"]
+
+
+def test_returning_callback_rejects_a_different_issued_client(tmp_path):
+    registered = ChatGPTCredentials(
+        host_id="urn:uuid:00000000-0000-0000-0000-000000000001",
+        client_id="issued-client",
+        subject="account-subject",
+    )
+    service = make_service(tmp_path, successful_handler, credentials=registered)
+    start = service.start_authorization()
+
+    with pytest.raises(ValueError) as error:
+        service.complete_authorization(
+            code="authorization-code",
+            state=start.state,
+            callback_client_id="different-client",
+        )
+
+    assert getattr(error.value, "reason", None) == "registration_incomplete"
+
+
 def test_callback_filters_models_and_marks_direct_scope(tmp_path):
     service = make_service(tmp_path, successful_handler)
     start = service.start_authorization()
@@ -232,13 +277,14 @@ def test_initial_callback_rejects_registration_placeholder(tmp_path):
     service = make_service(tmp_path, successful_handler)
     start = service.start_authorization()
 
-    with pytest.raises(ValueError, match="issued client ID"):
+    with pytest.raises(ValueError) as error:
         service.complete_authorization(
             code="authorization-code",
             state=start.state,
             callback_client_id="dynamic_agent_client",
         )
 
+    assert getattr(error.value, "reason", None) == "registration_incomplete"
     assert service.status().signed_in is False
 
 
@@ -259,14 +305,87 @@ def test_token_validation_failure_does_not_replace_existing_registration(tmp_pat
     )
     start = service.start_authorization()
 
-    with pytest.raises(ValueError, match="nonce"):
+    with pytest.raises(ValueError) as error:
         service.complete_authorization(
             code="authorization-code",
             state=start.state,
             callback_client_id="issued-client",
         )
 
+    assert getattr(error.value, "reason", None) == "identity_validation_failed"
     assert service.store.load() == registered
+
+
+def test_returning_callback_rejects_a_different_verified_account(tmp_path):
+    registered = ChatGPTCredentials(
+        host_id="urn:uuid:00000000-0000-0000-0000-000000000001",
+        client_id="issued-client",
+        subject="original-account",
+    )
+
+    def changed_account_validator(_token: str, *, client_id: str, nonce: str):
+        return {"sub": "different-account", "nonce": nonce}
+
+    service = make_service(
+        tmp_path,
+        successful_handler,
+        credentials=registered,
+        validator=changed_account_validator,
+    )
+    start = service.start_authorization()
+
+    with pytest.raises(ValueError) as error:
+        service.complete_authorization(
+            code="authorization-code",
+            state=start.state,
+            callback_client_id=None,
+        )
+
+    assert getattr(error.value, "reason", None) == "identity_validation_failed"
+    assert service.store.load() == registered
+
+
+def test_model_discovery_failure_retains_validated_connection(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/oauth/token"):
+            return successful_handler(request)
+        if request.url.path == "/v1/models":
+            return httpx.Response(503, json={"error": {"code": "temporarily_unavailable"}})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    service = make_service(tmp_path, handler)
+    start = service.start_authorization()
+
+    with pytest.raises(ValueError) as error:
+        service.complete_authorization(
+            code="authorization-code",
+            state=start.state,
+            callback_client_id="issued-client",
+        )
+
+    assert getattr(error.value, "reason", None) == "model_discovery_failed"
+    stored = service.store.load()
+    assert stored.client_id == "issued-client"
+    assert stored.subject == "account-subject"
+    assert stored.access_token == "access-token"
+    assert stored.models == []
+
+
+def test_token_exchange_failure_has_a_safe_stage(tmp_path):
+    service = make_service(
+        tmp_path,
+        lambda _request: httpx.Response(400, json={"error": "invalid_grant"}),
+    )
+    start = service.start_authorization()
+
+    with pytest.raises(ValueError) as error:
+        service.complete_authorization(
+            code="authorization-code",
+            state=start.state,
+            callback_client_id="issued-client",
+        )
+
+    assert getattr(error.value, "reason", None) == "token_exchange_failed"
 
 
 def test_validate_id_token_checks_jwks_issuer_audience_and_nonce(monkeypatch):

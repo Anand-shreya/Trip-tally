@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 
 from app.chatgpt.deps import get_chatgpt_service
 from app.chatgpt.models import ChatGPTModelSelection, ChatGPTStatus
-from app.chatgpt.service import ChatGPTService
+from app.chatgpt.service import ChatGPTAuthorizationError, ChatGPTService
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/auth/chatgpt", tags=["chatgpt"])
@@ -78,6 +78,8 @@ def complete_chatgpt_authorization(
             state=state_value,
             callback_client_id=client_id,
         )
+    except ChatGPTAuthorizationError as exc:
+        return _frontend_redirect(result="error", reason=exc.reason)
     except Exception:
         return _frontend_redirect(result="error", reason="authorization_failed")
     return _frontend_redirect(

@@ -1,11 +1,14 @@
 from dataclasses import dataclass, field
+from urllib.parse import parse_qs, urlsplit
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from app.chatgpt.deps import get_chatgpt_service
 from app.chatgpt.models import ChatGPTStatus
-from app.chatgpt.service import AuthorizationStart
+from app.chatgpt.service import AuthorizationStart, ChatGPTService
+from app.chatgpt.store import CredentialStore
 from app.main import create_app
 
 CONNECTED = ChatGPTStatus(
@@ -164,6 +167,37 @@ def test_callback_maps_oauth_error_without_exposing_description(chatgpt_client):
     )
     assert "secret-details" not in response.headers["location"]
     assert service.exchange_calls == 0
+
+
+def test_callback_reports_token_exchange_stage_without_upstream_details(tmp_path):
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(
+            400,
+            json={"error": "invalid_grant", "error_description": "private-upstream-detail"},
+        )
+    )
+    service = ChatGPTService(
+        store=CredentialStore(tmp_path / "credentials.json"),
+        redirect_uri="http://127.0.0.1:8000/api/v1/auth/chatgpt/callback",
+        http_client=httpx.Client(transport=transport),
+        token_validator=lambda *_args, **_kwargs: {},
+    )
+    app = create_app(init_database=False)
+    app.dependency_overrides[get_chatgpt_service] = lambda: service
+    client = TestClient(app)
+    started = client.get("/api/v1/auth/chatgpt/start", follow_redirects=False)
+    state = parse_qs(urlsplit(started.headers["location"]).query)["state"][0]
+
+    response = client.get(
+        "/api/v1/auth/chatgpt/callback",
+        params={"code": "one-time-code", "state": state, "client_id": "issued-client"},
+        follow_redirects=False,
+    )
+
+    assert response.headers["location"] == (
+        "http://localhost:5173/?chatgpt=error&reason=token_exchange_failed"
+    )
+    assert "private-upstream-detail" not in response.headers["location"]
 
 
 def test_status_never_returns_credentials(chatgpt_client):

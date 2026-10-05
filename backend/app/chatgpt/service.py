@@ -2,7 +2,7 @@ import hmac
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlencode
 
 import httpx
@@ -34,6 +34,21 @@ SCOPES = (
 )
 
 TokenValidator = Callable[..., dict[str, Any]]
+AuthorizationFailureReason = Literal[
+    "state_mismatch",
+    "registration_incomplete",
+    "token_exchange_failed",
+    "identity_validation_failed",
+    "model_discovery_failed",
+]
+
+
+class ChatGPTAuthorizationError(ValueError):
+    """Expose only a fixed, non-sensitive OAuth failure stage to the browser."""
+
+    def __init__(self, reason: AuthorizationFailureReason):
+        super().__init__(reason)
+        self.reason = reason
 
 
 @dataclass(frozen=True)
@@ -134,48 +149,58 @@ class ChatGPTService:
         state: str,
         callback_client_id: str | None,
     ) -> ChatGPTStatus:
-        transaction = self._transactions.consume(state)
+        try:
+            transaction = self._transactions.consume(state)
+        except Exception as exc:
+            raise ChatGPTAuthorizationError("state_mismatch") from exc
         current = self.store.ensure_host_id()
-        issued_client_id = callback_client_id
-        if (
-            not issued_client_id
-            or issued_client_id == DYNAMIC_CLIENT_ID
-            or (current.client_id is not None and current.client_id != issued_client_id)
-        ):
-            raise ValueError("OpenAI callback did not return the expected issued client ID")
+        if current.client_id is not None:
+            if callback_client_id is not None and callback_client_id != current.client_id:
+                raise ChatGPTAuthorizationError("registration_incomplete")
+            issued_client_id = current.client_id
+        elif not callback_client_id or callback_client_id == DYNAMIC_CLIENT_ID:
+            raise ChatGPTAuthorizationError("registration_incomplete")
+        else:
+            issued_client_id = callback_client_id
 
-        response = self._http.post(
-            TOKEN_URL,
-            data={
-                "grant_type": "authorization_code",
-                "client_id": issued_client_id,
-                "code": code,
-                "redirect_uri": transaction.redirect_uri,
-                "code_verifier": transaction.verifier,
-                "resource": OPENAI_API_BASE,
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            raise ValueError("OAuth token response was not an object")
+        try:
+            response = self._http.post(
+                TOKEN_URL,
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": issued_client_id,
+                    "code": code,
+                    "redirect_uri": transaction.redirect_uri,
+                    "code_verifier": transaction.verifier,
+                    "resource": OPENAI_API_BASE,
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise ValueError("OAuth token response was not an object")
+            id_token = _required_string(payload, "id_token")
+            access_token = _required_string(payload, "access_token")
+            refresh_token = _required_string(payload, "refresh_token")
+            scopes = _scopes_from(payload)
+            expires_at = _expiry_from(payload)
+        except Exception as exc:
+            raise ChatGPTAuthorizationError("token_exchange_failed") from exc
 
-        id_token = _required_string(payload, "id_token")
-        access_token = _required_string(payload, "access_token")
-        refresh_token = _required_string(payload, "refresh_token")
-        claims = self._token_validator(
-            id_token,
-            client_id=issued_client_id,
-            nonce=transaction.nonce,
-        )
-        subject = claims.get("sub")
-        if not isinstance(subject, str) or not subject:
-            raise ValueError("ID token subject is missing")
-        scopes = _scopes_from(payload)
-        models = self._list_models(access_token) if DIRECT_TOKEN_SCOPE in scopes else []
-        selected_model = (
-            current.selected_model if current.selected_model in models else next(iter(models), None)
-        )
+        try:
+            claims = self._token_validator(
+                id_token,
+                client_id=issued_client_id,
+                nonce=transaction.nonce,
+            )
+            subject = claims.get("sub")
+            if not isinstance(subject, str) or not subject:
+                raise ValueError("ID token subject is missing")
+            if current.subject is not None and current.subject != subject:
+                raise ValueError("ID token subject changed for the registered client")
+        except Exception as exc:
+            raise ChatGPTAuthorizationError("identity_validation_failed") from exc
+
         credentials = ChatGPTCredentials(
             host_id=current.host_id,
             client_id=issued_client_id,
@@ -186,11 +211,26 @@ class ChatGPTService:
             access_token=access_token,
             refresh_token=refresh_token,
             scopes=scopes,
-            expires_at=_expiry_from(payload),
-            models=models,
-            selected_model=selected_model,
+            expires_at=expires_at,
+            models=[],
+            selected_model=None,
         )
         self.store.save(credentials)
+        if DIRECT_TOKEN_SCOPE in scopes:
+            try:
+                models = self._list_models(access_token)
+            except Exception as exc:
+                raise ChatGPTAuthorizationError("model_discovery_failed") from exc
+            selected_model = (
+                current.selected_model
+                if current.selected_model in models
+                else next(iter(models), None)
+            )
+            self.store.save(
+                credentials.model_copy(
+                    update={"models": models, "selected_model": selected_model}
+                )
+            )
         return self.status()
 
     def _list_models(self, access_token: str) -> list[str]:
