@@ -152,6 +152,7 @@ class ChatGPTService:
                 "code": code,
                 "redirect_uri": transaction.redirect_uri,
                 "code_verifier": transaction.verifier,
+                "resource": OPENAI_API_BASE,
             },
         )
         response.raise_for_status()

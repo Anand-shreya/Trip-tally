@@ -111,7 +111,7 @@ def test_callback_filters_models_and_marks_direct_scope(tmp_path):
     assert result.email == "traveler@example.com"
 
 
-def test_code_exchange_uses_issued_client_and_original_pkce_values(tmp_path):
+def test_code_exchange_uses_issued_client_original_pkce_and_resource(tmp_path):
     observed = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -132,6 +132,7 @@ def test_code_exchange_uses_issued_client_and_original_pkce_values(tmp_path):
     assert observed["code"] == ["authorization-code"]
     assert observed["redirect_uri"] == [REDIRECT_URI]
     assert observed["code_verifier"][0]
+    assert observed["resource"] == ["https://api.openai.com/v1"]
 
 
 def test_missing_direct_scope_keeps_identity_but_disables_plan(tmp_path):
