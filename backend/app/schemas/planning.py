@@ -5,6 +5,21 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.enums import TravelStyle
+from app.schemas.place import PlaceRead
+
+
+class AnalyzeTripRequest(BaseModel):
+    departure_city: str | None = Field(default=None, min_length=1, max_length=200)
+
+    @field_validator("departure_city")
+    @classmethod
+    def strip_departure_city(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("departure city must not be empty")
+        return value
 
 
 class ResolvedLocation(BaseModel):
@@ -168,3 +183,13 @@ class GeminiPlacesResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     places: list[PlaceSuggestion] = Field(min_length=1, max_length=20)
+
+
+class AnalysisResponse(BaseModel):
+    weather: WeatherReport
+    budget: BudgetReport
+    places: list[PlaceRead]
+    weather_source: str
+    budget_model: str
+    analyzed_at: datetime
+    status: str

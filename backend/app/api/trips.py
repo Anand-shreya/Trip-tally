@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentUserId, DbSession, OwnedTrip
-from app.schemas.place import AnalysisResponse
+from app.schemas.planning import AnalysisResponse, AnalyzeTripRequest
 from app.schemas.trip import TravelerCreate, TravelerRead, TripCreate, TripCreated, TripRead
-from app.services.planning_service import analyze_trip
+from app.services.planning_service import analyze_trip, get_analysis
 from app.services.trip_service import (
     add_traveler,
     archive_trip,
@@ -69,5 +69,14 @@ def delete_traveler_route(traveler_id: str, trip: OwnedTrip, db: DbSession) -> R
 
 
 @router.post("/{trip_id}/analyze", response_model=AnalysisResponse)
-async def analyze_trip_route(trip: OwnedTrip, db: DbSession):
-    return await analyze_trip(db, trip)
+async def analyze_trip_route(
+    trip: OwnedTrip,
+    db: DbSession,
+    payload: AnalyzeTripRequest | None = None,
+):
+    return await analyze_trip(db, trip, payload or AnalyzeTripRequest())
+
+
+@router.get("/{trip_id}/analysis", response_model=AnalysisResponse)
+def get_analysis_route(trip: OwnedTrip, db: DbSession):
+    return get_analysis(db, trip)

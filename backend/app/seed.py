@@ -10,16 +10,28 @@ from app.core.enums import ExpenseCategory, SplitType, TravelStyle
 from app.db.database import SessionLocal, init_db
 from app.models import Trip, User
 from app.schemas.expense import ExpenseCreate
+from app.schemas.planning import AnalyzeTripRequest
 from app.schemas.trip import TravelerCreate, TripCreate
 from app.services.expense_service import create_expense
 from app.services.itinerary_service import enqueue_itinerary, run_itinerary_job
-from app.services.planning_service import analyze_trip, list_places, select_places
+from app.services.planning_service import (
+    PlanningAIProvider,
+    WeatherFetcher,
+    analyze_trip,
+    list_places,
+    select_places,
+)
 from app.services.trip_service import add_traveler, create_trip
 
 DEMO_TRIP_NAME = "Kerala Backwaters Escape"
 
 
-async def seed_demo(db: Session) -> str:
+async def seed_demo(
+    db: Session,
+    *,
+    weather_fetcher: WeatherFetcher | None = None,
+    planning_provider: PlanningAIProvider | None = None,
+) -> str:
     """Create the deterministic showcase trip once and return its ID."""
     settings = get_settings()
     user = db.get(User, settings.demo_user_id)
@@ -56,7 +68,13 @@ async def seed_demo(db: Session) -> str:
         add_traveler(db, trip, TravelerCreate(name=name)) for name in ("Shreya", "Rahul", "Amit")
     ]
 
-    await analyze_trip(db, trip)
+    await analyze_trip(
+        db,
+        trip,
+        AnalyzeTripRequest(),
+        weather_fetcher=weather_fetcher,
+        planning_provider=planning_provider,
+    )
     recommended = list_places(db, trip)[:3]
     select_places(db, trip, [place.id for place in recommended])
     job = enqueue_itinerary(db, trip, dispatch=False)

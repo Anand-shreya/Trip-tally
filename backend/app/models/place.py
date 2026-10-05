@@ -43,5 +43,9 @@ class Place(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             Decimal("0"),
         )
 
+    @property
+    def relevance_score(self) -> Decimal:
+        return self.overall_score
+
 
 from app.models.trip import Trip  # noqa: E402, F401
