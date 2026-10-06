@@ -1,6 +1,6 @@
-# TripWise
+# TripTally
 
-TripWise is a full-stack travel itinerary planner and shared-expense tracker. Create a trip, fetch API weather and Gemini budget guidance, choose relevant places with Google Maps links, generate a day-by-day itinerary, record equal or custom expenses, and finish with exact balances and a settlement plan.
+TripTally is a full-stack travel itinerary planner and shared-expense tracker. Create a trip, fetch API weather and Gemini budget guidance, choose relevant places with Google Maps links, generate a day-by-day itinerary, record equal or custom expenses, and finish with exact balances and a settlement plan.
 
 Trip creation uses Photon/OpenStreetMap autocomplete to save canonical labels and coordinates. Planning analysis sends those coordinates to OpenWeather for current conditions and available forecasts; Open-Meteo supplies recent historical calendar dates when a trip is outside the forecast window. Two narrowly scoped Gemini requests estimate the complete group budget and suggest places. Results are validated and saved before the page changes. Itinerary and narrative generation can still use Gemini, a connected ChatGPT plan, an explicitly enabled OpenAI key, or the local provider.
 
@@ -63,11 +63,11 @@ Trip analysis requires an OpenWeather key and an enabled Gemini key. Add both to
 
 ## Connect a ChatGPT plan
 
-Start both local services, open [http://localhost:5173](http://localhost:5173), and choose **Continue with ChatGPT** in the top bar. During the Sign in with ChatGPT preview, eligible ChatGPT Plus and Pro accounts can authorize TripWise to use their plan for supported model inference.
+Start both local services, open [http://localhost:5173](http://localhost:5173), and choose **Continue with ChatGPT** in the top bar. During the Sign in with ChatGPT preview, eligible ChatGPT Plus and Pro accounts can authorize TripTally to use their plan for supported model inference.
 
 Authorization returns to the loopback backend at `127.0.0.1`. Access, refresh, and ID tokens never enter browser storage: the backend writes them to the Git-ignored `backend/.tripwise/chatgpt-credentials.json` file with owner-only permissions. After connecting, open the **Using ChatGPT plan** control to choose a listable model, open ChatGPT usage settings, or disconnect. Disconnect revokes the renewable session before removing local tokens while retaining the non-secret host/client registration for a later sign-in.
 
-Sign in with ChatGPT is separate from an OpenAI API key and API billing. TripWise prefers a connected ChatGPT plan, uses the legacy API-key route only when it is explicitly enabled, and otherwise keeps using the deterministic local provider. It never falls through from a failed ChatGPT-plan request to the API-key billing path.
+Sign in with ChatGPT is separate from an OpenAI API key and API billing. TripTally prefers a connected ChatGPT plan, uses the legacy API-key route only when it is explicitly enabled, and otherwise keeps using the deterministic local provider. It never falls through from a failed ChatGPT-plan request to the API-key billing path.
 
 ## Use Gemini's free tier
 
@@ -116,7 +116,7 @@ Backend settings use the `TRIPWISE_` prefix. For direct development, copy `.env.
 | `TRIPWISE_FRONTEND_URL` | `http://localhost:5173` | Browser destination after OAuth completes |
 | `VITE_API_URL` | `http://localhost:8000/api/v1` | Browser API root, embedded at frontend build time |
 
-When no hosted AI provider is enabled, TripWise can still use its local itinerary and prose provider. Expense tracking, balances, settlements, and previously saved data remain available. New planning analysis specifically requires Gemini and OpenWeather.
+When no hosted AI provider is enabled, TripTally can still use its local itinerary and prose provider. Expense tracking, balances, settlements, and previously saved data remain available. New planning analysis specifically requires Gemini and OpenWeather.
 
 Trip creation saves the selected Photon label, country code, latitude, and longitude. Planning reads current conditions plus the available forecast from OpenWeather at those saved coordinates, avoiding ambiguous destination geocoding. Legacy trips without coordinates still use OpenWeather geocoding. Dates outside that forecast are mapped to the most recent matching historical period available from Open-Meteo and are labeled with their actual source dates. Weather API or payload failures return a safe retry error and leave the last saved analysis unchanged; there is no generated or local planning-weather fallback.
 
@@ -233,4 +233,4 @@ Backend tests run against in-memory SQLite through the same SQLAlchemy/service b
 
 ## Deliberate MVP boundaries
 
-This release does not include TripWise user accounts, booking, live multi-user collaboration, a maps UI, receipt OCR, or production payment flows. Sign in with ChatGPT authorizes only the AI provider and does not replace the fixed TripWise demo user. The fixed demo user and provider interfaces keep the domain ready for application authentication later without presenting incomplete security or booking features as production-ready behavior.
+This release does not include TripTally user accounts, booking, live multi-user collaboration, a maps UI, receipt OCR, or production payment flows. Sign in with ChatGPT authorizes only the AI provider and does not replace the fixed TripTally demo user. The fixed demo user and provider interfaces keep the domain ready for application authentication later without presenting incomplete security or booking features as production-ready behavior.

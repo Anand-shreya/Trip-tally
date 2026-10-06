@@ -88,7 +88,7 @@ def test_initial_authorization_uses_dynamic_registration_and_pkce(tmp_path):
     query = parse_qs(urlsplit(start.url).query)
 
     assert query["client_id"] == ["dynamic_agent_client"]
-    assert query["agent_name_hint"] == ["TripWise"]
+    assert query["agent_name_hint"] == ["TripTally"]
     assert query["code_challenge_method"] == ["S256"]
     assert query["resource"] == ["https://api.openai.com/v1"]
     assert query["redirect_uri"] == [REDIRECT_URI]

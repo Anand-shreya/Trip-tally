@@ -28,7 +28,7 @@ export function SummaryPage() {
           return <article key={balance.traveler_id}><h3>{balance.traveler}</h3><span>Paid {formatMoney(balance.paid, data.currency)}</span><span>Share {formatMoney(balance.owed, data.currency)}</span><strong className={net >= 0 ? 'positive' : 'negative'}>Net {net > 0 ? '+' : ''}{formatMoney(net, data.currency)}</strong></article>
         })}</div>
       </section>
-      <section className="ai-summary"><Sparkles /><div><h2>TripWise note</h2><p>{data.ai_summary}</p></div></section>
+      <section className="ai-summary"><Sparkles /><div><h2>TripTally note</h2><p>{data.ai_summary}</p></div></section>
     </>
   )
 }

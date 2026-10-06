@@ -96,5 +96,6 @@ describe('summary', () => {
     expect(within(shreyaBalance!).getByText('Net +₹600')).toBeInTheDocument()
     expect(screen.getByText(/rahul pays shreya/i)).toBeInTheDocument()
     expect(screen.getByText(/within budget/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'TripTally note' })).toBeInTheDocument()
   })
 })

@@ -177,7 +177,7 @@ describe('ChatGPT connection control', () => {
   it.each([
     [
       'registration_incomplete',
-      'ChatGPT did not finish registering TripWise. Start the connection again.',
+      'ChatGPT did not finish registering TripTally. Start the connection again.',
     ],
     [
       'token_exchange_invalid_grant',
@@ -185,7 +185,7 @@ describe('ChatGPT connection control', () => {
     ],
     [
       'token_exchange_invalid_client',
-      'ChatGPT rejected this TripWise registration. Start the connection again.',
+      'ChatGPT rejected this TripTally registration. Start the connection again.',
     ],
     [
       'token_exchange_unavailable',
@@ -193,11 +193,11 @@ describe('ChatGPT connection control', () => {
     ],
     [
       'token_exchange_failed',
-      'TripWise could not complete the ChatGPT token exchange. Start again.',
+      'TripTally could not complete the ChatGPT token exchange. Start again.',
     ],
     [
       'identity_validation_failed',
-      'TripWise could not verify the ChatGPT account. Start the connection again.',
+      'TripTally could not verify the ChatGPT account. Start the connection again.',
     ],
     [
       'model_discovery_failed',

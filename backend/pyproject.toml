@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tripwise-api"
 version = "0.1.0"
-description = "TripWise travel planning and expense API"
+description = "TripTally travel planning and expense API"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1",

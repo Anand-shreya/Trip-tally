@@ -16,7 +16,7 @@ export function RootShell() {
   return (
     <div className="root-shell">
       <header className="topbar">
-        <Link className="brand" to="/"><Compass aria-hidden="true" /><span>TripWise</span></Link>
+        <Link className="brand" to="/"><Compass aria-hidden="true" /><span>TripTally</span></Link>
         <div className="topbar-actions">
           <AIProviderStatus />
           <Link className="topbar-action" to="/trips/new"><Plus size={18} /> New trip</Link>
@@ -33,7 +33,7 @@ export function TripLayout() {
     <div className="trip-shell">
       <aside className="route-rail">
         <Link className="route-back" to="/">All trips</Link>
-        <div className="route-mark"><span>TW</span></div>
+        <div className="route-mark"><span>TT</span></div>
         <nav aria-label="Trip route">
           {tripStops.map(([label, segment], index) => (
             <NavLink key={label} end={!segment} to={`/trips/${id}${segment ? `/${segment}` : ''}`}>

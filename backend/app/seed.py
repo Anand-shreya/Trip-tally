@@ -115,7 +115,7 @@ def main() -> None:
     init_db()
     with SessionLocal() as db:
         trip_id = asyncio.run(seed_demo(db))
-    print(f"TripWise demo is ready (trip id: {trip_id})")
+    print(f"TripTally demo is ready (trip id: {trip_id})")
 
 
 if __name__ == "__main__":

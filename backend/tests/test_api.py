@@ -119,6 +119,13 @@ def test_missing_trip_uses_consistent_detail_error(db: Session):
     assert response.json() == {"detail": "Trip not found"}
 
 
+def test_openapi_uses_the_public_triptally_brand(db: Session):
+    response = api_client(db).get("/openapi.json")
+
+    assert response.status_code == 200
+    assert response.json()["info"]["title"] == "TripTally API"
+
+
 def test_trip_can_be_archived_and_restored_without_losing_its_status(db: Session):
     from fastapi.testclient import TestClient
 

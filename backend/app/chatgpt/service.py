@@ -161,7 +161,7 @@ class ChatGPTService:
             "ext_agent_host_id": credentials.host_id,
         }
         if client_id == DYNAMIC_CLIENT_ID:
-            query["agent_name_hint"] = "TripWise"
+            query["agent_name_hint"] = "TripTally"
         return AuthorizationStart(
             url=f"{AUTHORIZATION_URL}?{urlencode(query)}",
             state=transaction.state,

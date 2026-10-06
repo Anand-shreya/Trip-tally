@@ -45,22 +45,22 @@ function callbackErrorMessage(reason: string | null) {
     return 'The ChatGPT sign-in expired. Start again to connect.'
   }
   if (reason === 'registration_incomplete') {
-    return 'ChatGPT did not finish registering TripWise. Start the connection again.'
+    return 'ChatGPT did not finish registering TripTally. Start the connection again.'
   }
   if (reason === 'token_exchange_invalid_grant') {
     return 'That ChatGPT sign-in code was already used or expired. Start again.'
   }
   if (reason === 'token_exchange_invalid_client') {
-    return 'ChatGPT rejected this TripWise registration. Start the connection again.'
+    return 'ChatGPT rejected this TripTally registration. Start the connection again.'
   }
   if (reason === 'token_exchange_unavailable') {
     return 'ChatGPT sign-in is temporarily unavailable. Try again in a moment.'
   }
   if (reason === 'token_exchange_failed') {
-    return 'TripWise could not complete the ChatGPT token exchange. Start again.'
+    return 'TripTally could not complete the ChatGPT token exchange. Start again.'
   }
   if (reason === 'identity_validation_failed') {
-    return 'TripWise could not verify the ChatGPT account. Start the connection again.'
+    return 'TripTally could not verify the ChatGPT account. Start the connection again.'
   }
   if (reason === 'model_discovery_failed') {
     return 'ChatGPT is connected, but its model list could not be loaded. Try connecting again.'
@@ -243,7 +243,7 @@ export function ChatGPTConnection({
             </span>
             <h2 id="chatgpt-welcome-title">ChatGPT is connected</h2>
             <p>
-              You’re using your ChatGPT plan. Eligible AI requests in TripWise will use your
+              You’re using your ChatGPT plan. Eligible AI requests in TripTally will use your
               plan, and you can manage usage in ChatGPT settings.
             </p>
             <button className="button secondary" onClick={() => setWelcomeOpen(false)} type="button">

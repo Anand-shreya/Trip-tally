@@ -1,4 +1,4 @@
-# TripWise Frontend Direction
+# TripTally Frontend Direction
 
 ## Tokens
 
@@ -17,7 +17,7 @@ Desktop pages use an offset map grid: a fixed route ribbon at left, a wide conte
 
 ```text
 ┌──────── route ribbon ────────┬──────── current trip view ───────────────────┐
-│  TripWise                    │  destination / date            action         │
+│  TripTally                   │  destination / date            action         │
 │  Overview ●                  │                                              │
 │  Plan     ○                  │  one dominant module       annotation         │
 │  Route    ○                  │  supporting ledger rows                         │
@@ -28,7 +28,7 @@ Desktop pages use an offset map grid: a fixed route ribbon at left, a wide conte
 ```text
 mobile
 ┌──────────────────────────────┐
-│ TripWise          menu       │
+│ TripTally         menu       │
 │ Sri Lanka / 3 days           │
 │ overview—plan—route—expenses │
 │                              │

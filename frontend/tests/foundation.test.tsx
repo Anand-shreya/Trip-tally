@@ -30,6 +30,7 @@ describe('application router', () => {
 
   it('renders the dashboard route and primary action', () => {
     renderRouter('/')
+    expect(screen.getByRole('link', { name: 'TripTally' })).toHaveAttribute('href', '/')
     expect(screen.getByRole('heading', { name: /where to next/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /plan a trip/i })).toHaveAttribute('href', '/trips/new')
   })
